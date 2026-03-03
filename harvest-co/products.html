@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shop | Store</title>
+  <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+
+<!-- NAV (identical structure to index.html) -->
+<nav class="hc-nav" data-nav>
+  <div class="hc-container">
+    <div class="hc-nav__inner">
+      <a href="index.html" class="hc-nav__logo" id="nav-logo"><strong id="nav-logo-text">Store</strong></a>
+      <div class="hc-nav__links" id="nav-links"></div>
+      <div class="hc-nav__actions">
+        <div class="hc-nav__icon" data-cart-icon>🛒<span class="badge" data-cart-count style="display:none">0</span></div>
+        <div class="hc-nav__icon" onclick="window.location='wishlist.html'">♡<span class="badge" data-wishlist-count style="display:none">0</span></div>
+      </div>
+      <button class="hc-nav__hamburger" data-hamburger><span></span><span></span><span></span></button>
+    </div>
+  </div>
+</nav>
+<div class="hc-mobile-nav" data-mobile-nav id="mobile-nav"></div>
+
+<!-- PAGE -->
+<div class="hc-page">
+  <div class="hc-section hc-section--sm">
+    <div class="hc-container">
+
+      <!-- Page heading -->
+      <div style="margin-bottom:32px;">
+        <div class="hc-label hc-label--accent" id="page-eyebrow">All Products</div>
+        <h1 class="hc-heading" style="font-size:clamp(1.8rem,3vw,2.8rem);margin-top:8px;" id="page-title">Shop Everything</h1>
+        <p style="color:var(--hc-text-muted);font-size:0.9rem;margin-top:6px;" id="page-sub">Browse our full catalogue</p>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="hc-filter-bar" id="filter-bar">
+        <button class="hc-filter-chip active" onclick="setFilter('all',this)">All</button>
+        <!-- category chips injected by JS -->
+      </div>
+
+      <!-- Sort + count bar -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <span style="font-size:0.82rem;color:var(--hc-text-muted);" id="product-count">Loading...</span>
+        <select class="hc-sort-select" onchange="sortProducts(this.value)">
+          <option value="default">Default</option>
+          <option value="price-asc">Price: Low to High</option>
+          <option value="price-desc">Price: High to Low</option>
+          <option value="name-asc">Name: A–Z</option>
+        </select>
+      </div>
+
+      <!-- Products grid -->
+      <div class="hc-products-grid" id="products-grid">
+        <div class="hc-loading" style="grid-column:1/-1"><div class="hc-spinner"></div> Loading...</div>
+      </div>
+
+      <!-- Load more -->
+      <div style="text-align:center;margin-top:40px;" id="load-more-wrap" style="display:none">
+        <button class="hc-btn hc-btn--outline" onclick="loadMore()">Load More</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER (same as index.html) -->
+<footer class="hc-footer">
+  <div class="hc-container">
+    <div class="hc-footer__bottom">
+      <span id="footer-copy">© 2025 Store</span>
+      <span>Powered by Rebel Engine 🇿🇦</span>
+    </div>
+  </div>
+</footer>
+
+<a href="#" class="hc-whatsapp-btn" id="whatsapp-btn" title="WhatsApp us">💬</a>
+
+<script src="../shared/rebel-engine.js"></script>
+<script src="STORE_CONFIG.js"></script>
+<script>
+(async function () {
+  const C = window.STORE_CONFIG || {};
+
+  // Apply colours
+  const root = document.documentElement;
+  if (C.colors) {
+    Object.entries({ primary:'--hc-primary', accent:'--hc-accent', accentAlt:'--hc-accent-alt', bg:'--hc-bg', surface:'--hc-surface', text:'--hc-text' }).forEach(([k,v]) => { if(C.colors[k]) root.style.setProperty(v, C.colors[k]); });
+  }
+
+  const name = C.storeName || 'Store';
+  document.title = `Shop | ${name}`;
+
+  if (C.logoImage) document.getElementById('nav-logo').innerHTML = `<img src="${C.logoImage}" alt="${name}">`;
+  else document.getElementById('nav-logo-text').textContent = C.logoText || name;
+
+  const links = C.navLinks || [];
+  const linksHTML = links.map(l => `<a href="${l.href}" class="${l.href.includes('products') ? 'active':''}" data-nav-link>${l.label}</a>`).join('');
+  document.getElementById('nav-links').innerHTML = linksHTML;
+  document.getElementById('mobile-nav').innerHTML = linksHTML;
+
+  document.getElementById('footer-copy').textContent = `© ${new Date().getFullYear()} ${name}`;
+
+  const fc = C.contact || {};
+  if (fc.whatsapp) document.getElementById('whatsapp-btn').href = `https://wa.me/${fc.whatsapp.replace(/\D/g,'')}`;
+  else document.getElementById('whatsapp-btn').style.display = 'none';
+
+  // Check URL params for pre-selected filter
+  const params = new URLSearchParams(window.location.search);
+  const preFilter = params.get('cat') || params.get('filter') || 'all';
+
+  // Build category filter chips
+  const filterBar = document.getElementById('filter-bar');
+  (C.categories || []).forEach(cat => {
+    const chip = document.createElement('button');
+    chip.className = `hc-filter-chip${preFilter === cat.slug ? ' active' : ''}`;
+    chip.textContent = `${cat.icon} ${cat.label}`;
+    chip.onclick = function() { setFilter(cat.slug, this); };
+    filterBar.appendChild(chip);
+  });
+  if (preFilter !== 'all') filterBar.querySelector('.hc-filter-chip')?.classList.remove('active');
+
+  // Nav scroll + hamburger
+  window.addEventListener('scroll', () => document.querySelector('.hc-nav').classList.toggle('scrolled', scrollY > 60), { passive: true });
+  document.querySelector('[data-hamburger]').addEventListener('click', function() { this.classList.toggle('active'); document.getElementById('mobile-nav').classList.toggle('open'); });
+  document.querySelectorAll('[data-cart-icon]').forEach(el => el.addEventListener('click', () => window.location='cart.html'));
+
+  Cart.updateBadge(); Wishlist.updateBadge();
+
+  // Init engine
+  await RebelEngine.init({ clientId: C.clientId, apiBase: C.apiBase });
+
+  // Fetch all products
+  window._allProducts = await Products.getAll({ clientId: C.clientId, limit: 500 });
+  window._currentFilter = preFilter;
+  window._currentSort = 'default';
+  window._currency = C.currency || 'R';
+  renderProducts();
+})();
+
+function setFilter(slug, btn) {
+  document.querySelectorAll('.hc-filter-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  window._currentFilter = slug;
+  renderProducts();
+}
+
+function sortProducts(val) {
+  window._currentSort = val;
+  renderProducts();
+}
+
+function renderProducts() {
+  const all = window._allProducts || [];
+  let list = all.filter(p => {
+    if (window._currentFilter === 'all') return true;
+    if (window._currentFilter === 'specials') return p.badge?.toLowerCase().includes('special') || p.category?.toLowerCase() === 'specials';
+    return p.category?.toLowerCase() === window._currentFilter.toLowerCase();
+  });
+
+  // Sort
+  if (window._currentSort === 'price-asc')  list = list.sort((a,b) => a.price - b.price);
+  if (window._currentSort === 'price-desc') list = list.sort((a,b) => b.price - a.price);
+  if (window._currentSort === 'name-asc')   list = list.sort((a,b) => a.name.localeCompare(b.name));
+
+  const grid = document.getElementById('products-grid');
+  const cur = window._currency;
+  document.getElementById('product-count').textContent = `${list.length} product${list.length !== 1 ? 's' : ''}`;
+
+  if (!list.length) {
+    grid.innerHTML = `<div class="hc-empty" style="grid-column:1/-1"><div style="font-size:2.5rem;margin-bottom:12px;">🔍</div><h3>No products found</h3><p>Try a different category or check back soon.</p></div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map(p => {
+    const img = p.images?.[0] || p.image || `https://placehold.co/400x400/f0e9df/1c1208?text=${encodeURIComponent(p.name)}`;
+    const qty = p.stock ?? p.quantity ?? 0;
+    const priceStr = Number(p.price||0).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const wasHTML = p.comparePrice ? `<span class="hc-card__was">${cur} ${Number(p.comparePrice).toLocaleString('en-ZA',{minimumFractionDigits:2})}</span>` : '';
+    return `
+      <article class="hc-card" onclick="window.location='product.html?id=${p._id}'">
+        <div class="hc-card__media">
+          <img src="${img}" alt="${p.name}" loading="lazy">
+          ${p.badge ? `<span class="hc-card__badge">${p.badge}</span>` : ''}
+          ${qty > 0 && qty <= (p.lowStockThreshold||5) ? `<span class="hc-card__badge hc-card__badge--green" style="top:auto;bottom:10px;left:10px;">Only ${qty} left</span>` : ''}
+          <button class="hc-card__wishlist ${Wishlist.has(p._id)?'active':''}" onclick="event.stopPropagation();toggleWishlist('${p._id}',this)">♡</button>
+        </div>
+        <div class="hc-card__body">
+          ${p.category ? `<p class="hc-card__cat">${p.category}</p>` : ''}
+          <h3 class="hc-card__name">${p.name}</h3>
+          <div class="hc-card__pricing">
+            <span class="hc-card__price">${cur} ${priceStr}</span>${wasHTML}
+          </div>
+          ${p.weight ? `<p class="hc-card__weight">⚖️ ${p.weight}</p>` : ''}
+          <div class="hc-card__footer">
+            <button class="hc-card__add ${qty===0?'hc-card__stock--out':''}" onclick="event.stopPropagation();addToCart('${p._id}','${p.name.replace(/'/g,"\\'")}',${p.price},this)">
+              ${qty===0 ? 'Out of Stock' : '+ Add to Cart'}
+            </button>
+          </div>
+        </div>
+      </article>`;
+  }).join('');
+}
+
+function addToCart(id, name, price, btn) {
+  Cart.add({ id, name, price, qty: 1 });
+  btn.textContent = '✓ Added'; btn.classList.add('added');
+  setTimeout(() => { btn.textContent = '+ Add to Cart'; btn.classList.remove('added'); }, 1800);
+  Cart.updateBadge();
+  const t = document.createElement('div'); t.className='hc-toast'; t.textContent=`${name} added to cart`; document.body.appendChild(t); setTimeout(()=>t.remove(),2600);
+}
+function toggleWishlist(id, btn) {
+  if (Wishlist.has(id)) { Wishlist.remove(id); btn.textContent='♡'; btn.classList.remove('active'); }
+  else { Wishlist.add(id); btn.textContent='♥'; btn.classList.add('active'); }
+  Wishlist.updateBadge();
+}
+</script>
+</body>
+</html>

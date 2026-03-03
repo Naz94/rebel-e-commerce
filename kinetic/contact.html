@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact | Store</title>
+  <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+<nav class="kn-nav" data-nav>
+  <div class="kn-container"><div class="kn-nav__inner">
+    <a href="index.html" class="kn-nav__logo" id="nav-logo"><strong id="nav-logo-text">Store</strong></a>
+    <div class="kn-nav__links" id="nav-links"></div>
+    <div class="kn-nav__actions">
+      <div class="kn-nav__icon" data-cart-icon>🛒<span class="badge" data-cart-count style="display:none">0</span></div>
+    </div>
+    <button class="kn-nav__hamburger" data-hamburger><span></span><span></span><span></span></button>
+  </div></div>
+</nav>
+<div class="kn-mobile-nav" data-mobile-nav id="mobile-nav"></div>
+
+<div class="kn-page">
+  <section class="kn-section">
+    <div class="kn-container">
+      <div class="kn-label kn-label--accent" style="margin-bottom:10px;">Get in Touch</div>
+      <h1 class="kn-heading" style="font-size:clamp(1.8rem,3vw,2.8rem);margin-bottom:8px;">We'd love to <em>hear from you</em></h1>
+      <p style="color:var(--kn-text-muted);margin-bottom:40px;">Questions, special orders, or just want to say hi — we're here.</p>
+
+      <div class="kn-contact-layout">
+        <!-- Form -->
+        <div>
+          <div id="contact-success" style="display:none;background:rgba(74,124,89,0.1);border:1px solid var(--kn-accent-alt);padding:20px;border-radius:var(--kn-radius-lg);margin-bottom:20px;">
+            ✅ <strong>Message sent!</strong> We'll get back to you within 24 hours.
+          </div>
+          <form onsubmit="sendMessage(event)">
+            <div class="kn-form-row">
+              <div class="kn-form-group"><label>Your Name *</label><input type="text" class="kn-input" id="c-name" required></div>
+              <div class="kn-form-group"><label>Email Address *</label><input type="email" class="kn-input" id="c-email" required></div>
+            </div>
+            <div class="kn-form-group"><label>Subject</label><input type="text" class="kn-input" id="c-subject" placeholder="e.g. Bulk order enquiry"></div>
+            <div class="kn-form-group"><label>Message *</label><textarea class="kn-input" id="c-msg" rows="5" required placeholder="Tell us how we can help..."></textarea></div>
+            <button type="submit" class="kn-btn kn-btn--primary">Send Message</button>
+          </form>
+        </div>
+        <!-- Info -->
+        <div>
+          <div class="kn-info-card" id="info-address"><div class="icon">📍</div><div><h4>Our Address</h4><p id="c-address">Loading...</p></div></div>
+          <div class="kn-info-card" id="info-phone"><div class="icon">📞</div><div><h4>Phone</h4><p id="c-phone">—</p></div></div>
+          <div class="kn-info-card" id="info-email"><div class="icon">✉️</div><div><h4>Email</h4><p id="c-email-disp">—</p></div></div>
+          <div class="kn-info-card" id="info-hours"><div class="icon">🕐</div><div><h4>Trading Hours</h4><div id="c-hours" style="font-size:0.88rem;line-height:1.8;"></div></div></div>
+          <a href="#" class="kn-btn kn-btn--alt kn-btn--wide" id="wa-link" style="margin-top:8px;">💬 WhatsApp Us</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<footer class="kn-footer">
+  <div class="kn-container"><div class="kn-footer__bottom"><span id="footer-copy">© 2025 Store</span><span>Powered by Rebel Engine 🇿🇦</span></div></div>
+</footer>
+
+<script src="../shared/rebel-engine.js"></script>
+<script src="STORE_CONFIG.js"></script>
+<script>
+(function(){
+  const C = window.STORE_CONFIG || {};
+  const root = document.documentElement;
+  if (C.colors) Object.entries({primary:'--kn-primary',accent:'--kn-accent',accentAlt:'--kn-accent-alt',bg:'--kn-bg',surface:'--kn-surface',text:'--kn-text'}).forEach(([k,v])=>{if(C.colors[k])root.style.setProperty(v,C.colors[k]);});
+  const name = C.storeName || 'Store';
+  document.title = `Contact | ${name}`;
+  document.getElementById('footer-copy').textContent = `© ${new Date().getFullYear()} ${name}`;
+  if (C.logoImage) document.getElementById('nav-logo').innerHTML=`<img src="${C.logoImage}" alt="${name}">`;
+  else document.getElementById('nav-logo-text').textContent = C.logoText || name;
+  const linksHTML = (C.navLinks||[]).map(l=>`<a href="${l.href}" class="${l.href.includes('contact')?'active':''}" data-nav-link>${l.label}</a>`).join('');
+  document.getElementById('nav-links').innerHTML = linksHTML;
+  document.getElementById('mobile-nav').innerHTML = linksHTML;
+
+  const fc = C.contact || {};
+  const h = C.hours || {};
+  document.getElementById('c-address').textContent = fc.address || '—';
+  document.getElementById('c-phone').innerHTML = fc.phone ? `<a href="tel:${fc.phone}">${fc.phone}</a>` : '—';
+  document.getElementById('c-email-disp').innerHTML = fc.email ? `<a href="mailto:${fc.email}">${fc.email}</a>` : '—';
+  document.getElementById('c-hours').innerHTML = [h.weekdays,h.saturday,h.sunday].filter(Boolean).map(l=>`<div>${l}</div>`).join('');
+  if (fc.whatsapp) document.getElementById('wa-link').href = `https://wa.me/${fc.whatsapp.replace(/\D/g,'')}`;
+
+  window.addEventListener('scroll',()=>document.querySelector('.kn-nav').classList.toggle('scrolled',scrollY>60),{passive:true});
+  document.querySelector('[data-hamburger]').addEventListener('click',function(){this.classList.toggle('active');document.getElementById('mobile-nav').classList.toggle('open');});
+  document.querySelectorAll('[data-cart-icon]').forEach(el=>el.addEventListener('click',()=>window.location='cart.html'));
+  RebelEngine.init({clientId:C.clientId,apiBase:C.apiBase});
+  Cart.updateBadge();
+})();
+
+function sendMessage(e) {
+  e.preventDefault();
+  document.getElementById('contact-success').style.display = '';
+  e.target.reset();
+}
+</script>
+</body>
+</html>

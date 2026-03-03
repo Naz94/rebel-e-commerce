@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home | Harvest & Co</title>
+  <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+
+<!-- ══ NAV ══ -->
+<nav class="hc-nav" data-nav>
+  <div class="hc-container">
+    <div class="hc-nav__inner">
+      <a href="index.html" class="hc-nav__logo" id="nav-logo">
+        <strong id="nav-logo-text">Store</strong>
+      </a>
+      <div class="hc-nav__links" id="nav-links"></div>
+      <div class="hc-nav__actions">
+        <div class="hc-nav__icon" data-cart-icon title="Cart">
+          🛒<span class="badge" data-cart-count style="display:none">0</span>
+        </div>
+        <div class="hc-nav__icon" onclick="window.location='wishlist.html'" title="Wishlist">
+          ♡<span class="badge" data-wishlist-count style="display:none">0</span>
+        </div>
+      </div>
+      <button class="hc-nav__hamburger" data-hamburger aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- Mobile Nav -->
+<div class="hc-mobile-nav" data-mobile-nav id="mobile-nav"></div>
+
+<!-- ══ HERO ══ -->
+<section class="hc-hero" id="section-hero" data-section="hero">
+  <div class="hc-container" style="display:contents;">
+    <div class="hc-hero__left hc-container">
+      <p class="hc-hero__eyebrow" id="hero-eyebrow">Est. South Africa</p>
+      <h1 class="hc-hero__title" id="hero-title">Freshness<br>you can <em>taste.</em></h1>
+      <p class="hc-hero__sub" id="hero-sub">Premium grass-fed beef, free-range chicken & artisan charcuterie — delivered to your door.</p>
+      <div class="hc-hero__cta">
+        <a href="products.html" class="hc-btn hc-btn--primary" id="hero-cta">Shop Now</a>
+        <a href="products.html?filter=specials" class="hc-btn hc-btn--outline-light" id="hero-secondary">View Specials</a>
+      </div>
+    </div>
+    <div class="hc-hero__right" id="hero-image-wrap">
+      <img src="https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=800&q=80" alt="Fresh cuts" id="hero-img">
+      <div class="hc-hero__badge" id="hero-badge">Farm to Table</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ CATEGORIES ══ -->
+<section class="hc-section hc-section--sm" id="section-categories" data-section="categories">
+  <div class="hc-container">
+    <div class="hc-section-header hc-text-center">
+      <div class="hc-label hc-label--accent">Browse by Category</div>
+      <h2 class="hc-heading" style="margin-top:8px;">What are you <em>looking for?</em></h2>
+    </div>
+    <div class="hc-cats-grid" id="cats-grid"></div>
+  </div>
+</section>
+
+<!-- ══ FEATURED PRODUCTS ══ -->
+<section class="hc-section" style="background:var(--hc-bg-alt);" id="section-featuredProducts" data-section="featuredProducts">
+  <div class="hc-container">
+    <div class="hc-section-header" style="display:flex;justify-content:space-between;align-items:flex-end;">
+      <div>
+        <div class="hc-label hc-label--accent">Hand-picked</div>
+        <h2 class="hc-heading" style="margin-top:8px;">This week's <em>favourites</em></h2>
+      </div>
+      <a href="products.html" class="hc-btn hc-btn--outline">View All</a>
+    </div>
+    <div class="hc-products-grid" id="featured-grid">
+      <div class="hc-loading"><div class="hc-spinner"></div> Loading products...</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SPECIALS BANNER ══ -->
+<section class="hc-section hc-section--sm" id="section-specials" data-section="specials">
+  <div class="hc-container">
+    <div class="hc-specials-banner">
+      <div>
+        <p class="eyebrow">Don't miss out</p>
+        <h3>This Week's Specials 🔥</h3>
+        <p>Fresh deals every Monday. While stocks last.</p>
+      </div>
+      <a href="products.html?filter=specials" class="hc-btn hc-btn--primary">See Specials</a>
+    </div>
+  </div>
+</section>
+
+<!-- ══ TESTIMONIALS ══ -->
+<section class="hc-section hc-section--sm" id="section-testimonials" data-section="testimonials" style="display:none;">
+  <div class="hc-container">
+    <div class="hc-section-header hc-text-center">
+      <h2 class="hc-heading">What our <em>customers say</em></h2>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px;">
+      <div style="background:var(--hc-surface);border:1px solid var(--hc-border);border-radius:var(--hc-radius-lg);padding:24px;">
+        <div style="color:var(--hc-accent);font-size:1rem;margin-bottom:10px;">★★★★★</div>
+        <p style="font-family:var(--hc-font-display);font-style:italic;font-size:0.95rem;margin-bottom:12px;">"The rump steak is absolutely incredible. Best I've had in years."</p>
+        <strong style="font-size:0.8rem;">— Thabo M., Sandton</strong>
+      </div>
+      <div style="background:var(--hc-surface);border:1px solid var(--hc-border);border-radius:var(--hc-radius-lg);padding:24px;">
+        <div style="color:var(--hc-accent);font-size:1rem;margin-bottom:10px;">★★★★★</div>
+        <p style="font-family:var(--hc-font-display);font-style:italic;font-size:0.95rem;margin-bottom:12px;">"Same-day delivery and the packaging was superb. Will order every week."</p>
+        <strong style="font-size:0.8rem;">— Kefilwe D., Fourways</strong>
+      </div>
+      <div style="background:var(--hc-surface);border:1px solid var(--hc-border);border-radius:var(--hc-radius-lg);padding:24px;">
+        <div style="color:var(--hc-accent);font-size:1rem;margin-bottom:10px;">★★★★☆</div>
+        <p style="font-family:var(--hc-font-display);font-style:italic;font-size:0.95rem;margin-bottom:12px;">"Fresh, affordable and exactly what I ordered. Highly recommended."</p>
+        <strong style="font-size:0.8rem;">— Priya N., Northgate</strong>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ NEWSLETTER ══ -->
+<div id="section-newsletter" data-section="newsletter">
+  <div class="hc-newsletter">
+    <div class="hc-container">
+      <div class="hc-newsletter__inner">
+        <div>
+          <h2 class="hc-heading"><em>Weekly specials</em> in your inbox</h2>
+          <p>Be first to know about new cuts, deals, and seasonal favourites.</p>
+        </div>
+        <form class="hc-newsletter__form" onsubmit="handleNewsletter(event)">
+          <input type="email" class="hc-newsletter__input" placeholder="your@email.co.za" required>
+          <button type="submit" class="hc-btn hc-btn--primary">Subscribe</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ FOOTER ══ -->
+<footer class="hc-footer">
+  <div class="hc-container">
+    <div class="hc-footer__grid">
+      <div>
+        <div class="hc-footer__logo"><strong id="footer-logo">Store</strong></div>
+        <p class="hc-footer__desc" id="footer-desc">Premium cuts, sourced locally.</p>
+        <div class="hc-footer__social" id="footer-social"></div>
+      </div>
+      <div>
+        <p class="hc-footer__title">Shop</p>
+        <div class="hc-footer__links" id="footer-shop-links"></div>
+      </div>
+      <div>
+        <p class="hc-footer__title">Info</p>
+        <div class="hc-footer__links">
+          <a href="about.html">About Us</a>
+          <a href="contact.html">Contact</a>
+          <a href="#" id="footer-delivery-link">Delivery Info</a>
+        </div>
+      </div>
+      <div>
+        <p class="hc-footer__title">Contact Us</p>
+        <div id="footer-contact"></div>
+        <div class="hc-footer__title" style="margin-top:16px;">Trading Hours</div>
+        <div id="footer-hours" style="font-size:0.82rem;color:rgba(250,246,240,0.6);line-height:1.8;"></div>
+      </div>
+    </div>
+    <div class="hc-footer__bottom">
+      <span id="footer-copy">© 2025 Store. All rights reserved.</span>
+      <span>Powered by Rebel Engine 🇿🇦</span>
+    </div>
+  </div>
+</footer>
+
+<!-- WhatsApp float -->
+<a href="#" class="hc-whatsapp-btn" id="whatsapp-btn" data-section="whatsapp" data-whatsapp title="WhatsApp us">💬</a>
+
+<!-- ══ SCRIPTS ══ -->
+<script src="../shared/rebel-engine.js"></script>
+<script src="STORE_CONFIG.js"></script>
+<script>
+(async function () {
+  const C = window.STORE_CONFIG || {};
+
+  // ── Apply CSS variables from config colours
+  const root = document.documentElement;
+  if (C.colors) {
+    if (C.colors.primary)   root.style.setProperty('--hc-primary',   C.colors.primary);
+    if (C.colors.accent)    root.style.setProperty('--hc-accent',    C.colors.accent);
+    if (C.colors.accentAlt) root.style.setProperty('--hc-accent-alt',C.colors.accentAlt);
+    if (C.colors.bg)        root.style.setProperty('--hc-bg',        C.colors.bg);
+    if (C.colors.surface)   root.style.setProperty('--hc-surface',   C.colors.surface);
+    if (C.colors.text)      root.style.setProperty('--hc-text',      C.colors.text);
+  }
+
+  // ── Store identity
+  const name = C.storeName || 'Store';
+  document.title = `Home | ${name}`;
+  if (C.favicon) { const l = document.createElement('link'); l.rel='icon'; l.href=C.favicon; document.head.appendChild(l); }
+  const logoEl = document.getElementById('nav-logo-text');
+  if (C.logoImage) {
+    document.getElementById('nav-logo').innerHTML = `<img src="${C.logoImage}" alt="${name}">`;
+  } else {
+    logoEl.textContent = C.logoText || name;
+  }
+  document.getElementById('footer-logo').textContent = C.logoText || name;
+  document.getElementById('footer-desc').textContent = C.storeTagline || '';
+
+  // ── Nav links
+  const navLinksEl = document.getElementById('nav-links');
+  const mobileNavEl = document.getElementById('mobile-nav');
+  const links = C.navLinks || [];
+  const currentPage = 'index.html';
+  const linksHTML = links.map(l => `<a href="${l.href}" class="${l.href.includes(currentPage) ? 'active':''}" data-nav-link>${l.label}</a>`).join('');
+  navLinksEl.innerHTML = linksHTML;
+  mobileNavEl.innerHTML = linksHTML;
+
+  // ── Footer shop links (from categories)
+  document.getElementById('footer-shop-links').innerHTML = (C.categories || []).map(c =>
+    `<a href="products.html?cat=${c.slug}">${c.icon} ${c.label}</a>`
+  ).join('');
+
+  // ── Footer contact
+  const fc = C.contact || {};
+  document.getElementById('footer-contact').innerHTML = [
+    fc.address ? `<div class="hc-footer__contact-item"><span>📍</span><span>${fc.address}</span></div>` : '',
+    fc.phone   ? `<div class="hc-footer__contact-item"><span>📞</span><a href="tel:${fc.phone}">${fc.phone}</a></div>` : '',
+    fc.email   ? `<div class="hc-footer__contact-item"><span>✉️</span><a href="mailto:${fc.email}">${fc.email}</a></div>` : '',
+  ].join('');
+
+  // ── Footer hours
+  const h = C.hours || {};
+  document.getElementById('footer-hours').innerHTML = [h.weekdays, h.saturday, h.sunday].filter(Boolean).map(l=>`<div>${l}</div>`).join('');
+
+  // ── Footer social
+  const s = C.social || {};
+  const socialIcons = { facebook:'📘', instagram:'📸', tiktok:'🎵', twitter:'🐦' };
+  document.getElementById('footer-social').innerHTML = Object.entries(s).filter(([,v])=>v).map(([k,v])=>
+    `<a href="${v}" target="_blank" rel="noopener" title="${k}">${socialIcons[k]||'🔗'}</a>`
+  ).join('');
+
+  // ── Copyright
+  document.getElementById('footer-copy').textContent = `© ${new Date().getFullYear()} ${name}. All rights reserved.`;
+
+  // ── WhatsApp
+  const waBtn = document.getElementById('whatsapp-btn');
+  if (fc.whatsapp) {
+    waBtn.href = `https://wa.me/${fc.whatsapp.replace(/\D/g,'')}`;
+  } else {
+    waBtn.style.display = 'none';
+  }
+
+  // ── Hero content
+  document.getElementById('hero-title').innerHTML = (C.heroHeadline || 'Freshness<br>you can <em>taste.</em>');
+  document.getElementById('hero-sub').textContent = C.heroSubtext || '';
+  const ctaEl = document.getElementById('hero-cta');
+  ctaEl.textContent = C.heroCTA || 'Shop Now';
+  ctaEl.href = C.heroCTALink || 'products.html';
+  const secEl = document.getElementById('hero-secondary');
+  secEl.textContent = C.heroSecondary || 'View Specials';
+  secEl.href = C.heroSecondaryLink || 'products.html?filter=specials';
+
+  // ── Section visibility
+  const secs = C.sections || {};
+  document.querySelectorAll('[data-section]').forEach(el => {
+    const key = el.dataset.section;
+    if (key in secs && secs[key] === false) el.style.display = 'none';
+    else if (key in secs && secs[key] === true) el.style.display = '';
+  });
+
+  // ── Categories grid
+  const catsEl = document.getElementById('cats-grid');
+  catsEl.innerHTML = (C.categories || []).map(cat => `
+    <div class="hc-cat-card" onclick="window.location='products.html?cat=${cat.slug}'">
+      <div class="icon">${cat.icon}</div>
+      <div class="label">${cat.label}</div>
+    </div>
+  `).join('');
+
+  // ── Init Rebel Engine & load products
+  await RebelEngine.init({ clientId: C.clientId, apiBase: C.apiBase });
+
+  const featured = await Products.getFeatured(8);
+  const grid = document.getElementById('featured-grid');
+
+  if (!featured.length) {
+    grid.innerHTML = `<div class="hc-empty" style="grid-column:1/-1"><h3>No products yet</h3><p>Products added in the dashboard will appear here.</p></div>`;
+  } else {
+    const cur = C.currency || 'R';
+    grid.innerHTML = featured.map(p => {
+      const img = p.images?.[0] || p.image || `https://placehold.co/400x400/f0e9df/1c1208?text=${encodeURIComponent(p.name)}`;
+      const qty = p.stock ?? p.quantity ?? 0;
+      const stockLabel = qty === 0
+        ? `<span class="hc-chip hc-chip--grey">Out of Stock</span>`
+        : qty <= (p.lowStockThreshold||5)
+          ? `<span class="hc-chip hc-chip--red">Only ${qty} left</span>`
+          : `<span class="hc-chip hc-chip--green">In Stock</span>`;
+      const priceNum = Number(p.price || 0).toLocaleString('en-ZA', {minimumFractionDigits:2,maximumFractionDigits:2});
+      const wasHTML = p.comparePrice ? `<span class="hc-card__was">${cur} ${Number(p.comparePrice).toLocaleString('en-ZA',{minimumFractionDigits:2})}</span>` : '';
+      return `
+        <article class="hc-card" onclick="window.location='product.html?id=${p._id}'">
+          <div class="hc-card__media">
+            <img src="${img}" alt="${p.name}" loading="lazy">
+            ${p.badge ? `<span class="hc-card__badge">${p.badge}</span>` : ''}
+            <button class="hc-card__wishlist" onclick="event.stopPropagation();toggleWishlist('${p._id}',this)" aria-label="Wishlist">♡</button>
+          </div>
+          <div class="hc-card__body">
+            ${p.category ? `<p class="hc-card__cat">${p.category}</p>` : ''}
+            <h3 class="hc-card__name">${p.name}</h3>
+            <div class="hc-card__pricing">
+              <span class="hc-card__price">${cur} ${priceNum}</span>${wasHTML}
+            </div>
+            ${p.weight ? `<p class="hc-card__weight">⚖️ ${p.weight}</p>` : ''}
+            <div class="hc-card__footer">
+              <button class="hc-card__add ${qty===0?'hc-card__stock--out':''}" onclick="event.stopPropagation();addToCart('${p._id}','${p.name.replace(/'/g,"\\'")}',${p.price},this)">
+                ${qty===0 ? 'Out of Stock' : '+ Add to Cart'}
+              </button>
+            </div>
+          </div>
+        </article>`;
+    }).join('');
+  }
+
+  // Nav scroll
+  window.addEventListener('scroll', () => {
+    document.querySelector('.hc-nav').classList.toggle('scrolled', scrollY > 60);
+  }, { passive: true });
+
+  // Mobile nav
+  document.querySelector('[data-hamburger]').addEventListener('click', function() {
+    this.classList.toggle('active');
+    document.getElementById('mobile-nav').classList.toggle('open');
+    document.body.classList.toggle('nav-open');
+  });
+
+  // Cart icon
+  document.querySelectorAll('[data-cart-icon]').forEach(el => {
+    el.addEventListener('click', () => window.location = 'cart.html');
+  });
+
+  Cart.updateBadge();
+  Wishlist.updateBadge();
+
+})();
+
+function addToCart(id, name, price, btn) {
+  Cart.add({ id, name, price, qty: 1 });
+  btn.textContent = '✓ Added';
+  btn.classList.add('added');
+  setTimeout(() => { btn.textContent = '+ Add to Cart'; btn.classList.remove('added'); }, 1800);
+  Cart.updateBadge();
+  showToast(`${name} added to cart`);
+}
+
+function toggleWishlist(id, btn) {
+  if (Wishlist.has(id)) { Wishlist.remove(id); btn.textContent = '♡'; btn.classList.remove('active'); }
+  else { Wishlist.add(id); btn.textContent = '♥'; btn.classList.add('active'); }
+  Wishlist.updateBadge();
+}
+
+function handleNewsletter(e) {
+  e.preventDefault();
+  showToast('Thanks for subscribing! 🎉');
+  e.target.reset();
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'hc-toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2800);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home | Kinetic</title>
+  <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+
+<nav class="kn-nav" data-nav>
+  <div class="kn-container">
+    <div class="kn-nav__inner">
+      <a href="index.html" class="kn-nav__logo" id="nav-logo"><strong id="nav-logo-text">KINETIC</strong></a>
+      <div class="kn-nav__links" id="nav-links"></div>
+      <div class="kn-nav__actions">
+        <div class="kn-nav__icon" data-cart-icon title="Cart">
+          🛒<span class="badge" data-cart-count style="display:none">0</span>
+        </div>
+        <div class="kn-nav__icon" onclick="window.location='wishlist.html'" title="Wishlist">
+          ♡<span class="badge" data-wishlist-count style="display:none">0</span>
+        </div>
+      </div>
+      <button class="kn-nav__hamburger" data-hamburger aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</nav>
+<div class="kn-mobile-nav" data-mobile-nav id="mobile-nav"></div>
+
+<!-- HERO -->
+<section class="kn-hero" id="section-hero" data-section="hero">
+  <div class="kn-hero__bg" id="hero-bg">
+    <img src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1400&q=80" alt="Training">
+  </div>
+  <div class="kn-container">
+    <div class="kn-hero__content">
+      <p class="kn-hero__eyebrow" id="hero-eyebrow">South Africa's Fitness Store</p>
+      <h1 class="kn-hero__title" id="hero-title">PUSH<br><em>HARDER.</em></h1>
+      <p class="kn-hero__sub" id="hero-sub">Premium supplements, training gear and apparel — built for athletes who don't make excuses.</p>
+      <div class="kn-hero__cta">
+        <a href="products.html" class="kn-btn kn-btn--primary" id="hero-cta">Shop Now</a>
+        <a href="products.html?filter=specials" class="kn-btn kn-btn--outline" id="hero-secondary">See Deals</a>
+      </div>
+      <div class="kn-hero__stat" id="hero-stats">
+        <div class="kn-hero__stat-item"><div class="num">500+</div><div class="lbl">Products</div></div>
+        <div class="kn-hero__stat-item"><div class="num">24H</div><div class="lbl">Dispatch</div></div>
+        <div class="kn-hero__stat-item"><div class="num">R<span id="stat-free-over">500</span></div><div class="lbl">Free Delivery</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CATEGORIES -->
+<section class="kn-section kn-section--sm kn-section--dark" id="section-categories" data-section="categories">
+  <div class="kn-container">
+    <div class="kn-section-header">
+      <span class="kn-label">Browse by Category</span>
+      <h2>SHOP BY <em>GOAL</em></h2>
+    </div>
+    <div class="kn-cats-grid" id="cats-grid"></div>
+  </div>
+</section>
+
+<!-- FEATURED PRODUCTS -->
+<section class="kn-section" id="section-featuredProducts" data-section="featuredProducts">
+  <div class="kn-container">
+    <div class="kn-section-header" style="display:flex;justify-content:space-between;align-items:flex-end;">
+      <div>
+        <span class="kn-label">Trending Now</span>
+        <h2>TOP <em>SELLERS</em></h2>
+      </div>
+      <a href="products.html" class="kn-btn kn-btn--outline kn-btn--sm">View All</a>
+    </div>
+    <div class="kn-products-grid" id="featured-grid">
+      <div class="kn-loading"><div class="kn-spinner"></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- PROMO BANNER -->
+<section class="kn-section kn-section--sm" id="section-specials" data-section="specials">
+  <div class="kn-container">
+    <div class="kn-promo">
+      <div>
+        <p class="eyebrow">Limited Time</p>
+        <h3>WEEKLY DEALS 🔥</h3>
+        <p>New specials every Monday. No excuses, just gains.</p>
+      </div>
+      <a href="products.html?filter=specials" class="kn-btn kn-btn--ghost">See All Deals →</a>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="kn-section kn-section--sm kn-section--dark" id="section-testimonials" data-section="testimonials" style="display:none;">
+  <div class="kn-container">
+    <div class="kn-section-header kn-text-center">
+      <h2>WHAT ATHLETES <em>SAY</em></h2>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;">
+      <div style="background:var(--kn-surface);border:1px solid var(--kn-border);border-top:3px solid var(--kn-accent);border-radius:var(--kn-radius-lg);padding:24px;">
+        <div style="color:var(--kn-accent);font-size:0.9rem;margin-bottom:10px;font-family:var(--kn-font-mono);">★★★★★</div>
+        <p style="font-size:0.9rem;color:var(--kn-text-muted);margin-bottom:12px;line-height:1.6;">"The pre-workout is insane. Best I've tried in 10 years of training."</p>
+        <strong style="font-size:0.78rem;font-family:var(--kn-font-mono);color:var(--kn-accent);">— SIPHO M., JHB</strong>
+      </div>
+      <div style="background:var(--kn-surface);border:1px solid var(--kn-border);border-top:3px solid var(--kn-accent);border-radius:var(--kn-radius-lg);padding:24px;">
+        <div style="color:var(--kn-accent);font-size:0.9rem;margin-bottom:10px;font-family:var(--kn-font-mono);">★★★★★</div>
+        <p style="font-size:0.9rem;color:var(--kn-text-muted);margin-bottom:12px;line-height:1.6;">"Same-day shipping got my protein in time for my competition prep. Legendary."</p>
+        <strong style="font-size:0.78rem;font-family:var(--kn-font-mono);color:var(--kn-accent);">— LERATO K., PTA</strong>
+      </div>
+      <div style="background:var(--kn-surface);border:1px solid var(--kn-border);border-top:3px solid var(--kn-accent);border-radius:var(--kn-radius-lg);padding:24px;">
+        <div style="color:var(--kn-accent);font-size:0.9rem;margin-bottom:10px;font-family:var(--kn-font-mono);">★★★★☆</div>
+        <p style="font-size:0.9rem;color:var(--kn-text-muted);margin-bottom:12px;line-height:1.6;">"Finally a SA store that stocks the good stuff at prices that don't hurt."</p>
+        <strong style="font-size:0.78rem;font-family:var(--kn-font-mono);color:var(--kn-accent);">— ANELE D., CPT</strong>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- NEWSLETTER -->
+<div id="section-newsletter" data-section="newsletter">
+  <div class="kn-newsletter">
+    <div class="kn-container">
+      <div class="kn-newsletter__inner">
+        <div>
+          <h2>GET <em>FIRST ACCESS</em></h2>
+          <p>New drops, deals, and training tips. No spam. Ever.</p>
+        </div>
+        <form class="kn-newsletter__form" onsubmit="handleNewsletter(event)">
+          <input type="email" class="kn-newsletter__input" placeholder="your@email.co.za" required>
+          <button type="submit" class="kn-btn kn-btn--ghost" style="color:var(--kn-text-inv);border-color:rgba(0,0,0,0.3);">JOIN</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer class="kn-footer">
+  <div class="kn-container">
+    <div class="kn-footer__grid">
+      <div>
+        <div class="kn-footer__logo"><strong id="footer-logo">KINETIC</strong></div>
+        <p class="kn-footer__desc" id="footer-desc">Built for athletes.</p>
+        <div class="kn-footer__social" id="footer-social"></div>
+      </div>
+      <div>
+        <p class="kn-footer__title">Shop</p>
+        <div class="kn-footer__links" id="footer-shop-links"></div>
+      </div>
+      <div>
+        <p class="kn-footer__title">Info</p>
+        <div class="kn-footer__links">
+          <a href="about.html">About Us</a>
+          <a href="contact.html">Contact</a>
+          <a href="#">Delivery Info</a>
+        </div>
+      </div>
+      <div>
+        <p class="kn-footer__title">Contact</p>
+        <div id="footer-contact"></div>
+        <div class="kn-footer__title" style="margin-top:14px;">Hours</div>
+        <div id="footer-hours" style="font-size:0.8rem;color:rgba(240,240,240,0.4);line-height:1.9;font-family:var(--kn-font-mono);"></div>
+      </div>
+    </div>
+    <div class="kn-footer__bottom">
+      <span id="footer-copy">© 2025 Kinetic. All rights reserved.</span>
+      <span>Powered by Rebel Engine 🇿🇦</span>
+    </div>
+  </div>
+</footer>
+
+<a href="#" class="kn-whatsapp-btn" id="whatsapp-btn" data-section="whatsapp" title="WhatsApp us">💬</a>
+
+<script src="../shared/rebel-engine.js"></script>
+<script src="STORE_CONFIG.js"></script>
+<script>
+(async function () {
+  const C = window.STORE_CONFIG || {};
+
+  // Apply colour tokens
+  const root = document.documentElement;
+  if (C.colors) {
+    if (C.colors.primary)   root.style.setProperty('--kn-primary',  C.colors.primary);
+    if (C.colors.accent)    root.style.setProperty('--kn-accent',   C.colors.accent);
+    if (C.colors.accentAlt) root.style.setProperty('--kn-accent-2', C.colors.accentAlt);
+    if (C.colors.bg)        root.style.setProperty('--kn-bg',       C.colors.bg);
+    if (C.colors.surface)   root.style.setProperty('--kn-surface',  C.colors.surface);
+    if (C.colors.text)      root.style.setProperty('--kn-text',     C.colors.text);
+  }
+
+  const name = C.storeName || 'Kinetic';
+  document.title = `Home | ${name}`;
+  if (C.favicon) { const l = document.createElement('link'); l.rel='icon'; l.href=C.favicon; document.head.appendChild(l); }
+
+  if (C.logoImage) {
+    document.getElementById('nav-logo').innerHTML = `<img src="${C.logoImage}" alt="${name}">`;
+  } else {
+    document.getElementById('nav-logo-text').textContent = C.logoText || name;
+  }
+  document.getElementById('footer-logo').textContent = C.logoText || name;
+  document.getElementById('footer-desc').textContent = C.storeTagline || '';
+
+  const links = C.navLinks || [];
+  const linksHTML = links.map(l => `<a href="${l.href}" data-nav-link>${l.label}</a>`).join('');
+  document.getElementById('nav-links').innerHTML = linksHTML;
+  document.getElementById('mobile-nav').innerHTML = linksHTML;
+
+  document.getElementById('footer-shop-links').innerHTML = (C.categories||[]).map(c =>
+    `<a href="products.html?cat=${c.slug}">${c.label}</a>`).join('');
+
+  const fc = C.contact || {};
+  document.getElementById('footer-contact').innerHTML = [
+    fc.address ? `<div class="kn-footer__contact-item"><span>📍</span><span>${fc.address}</span></div>` : '',
+    fc.phone   ? `<div class="kn-footer__contact-item"><span>📞</span><a href="tel:${fc.phone}">${fc.phone}</a></div>` : '',
+    fc.email   ? `<div class="kn-footer__contact-item"><span>✉️</span><a href="mailto:${fc.email}">${fc.email}</a></div>` : '',
+  ].join('');
+
+  const h = C.hours || {};
+  document.getElementById('footer-hours').innerHTML = [h.weekdays,h.saturday,h.sunday].filter(Boolean).map(l=>`<div>${l}</div>`).join('');
+
+  const s = C.social || {};
+  const icons = {facebook:'📘',instagram:'📸',tiktok:'🎵',twitter:'🐦'};
+  document.getElementById('footer-social').innerHTML = Object.entries(s).filter(([,v])=>v).map(([k,v])=>
+    `<a href="${v}" target="_blank" rel="noopener">${icons[k]||'🔗'}</a>`).join('');
+
+  document.getElementById('footer-copy').textContent = `© ${new Date().getFullYear()} ${name}. All rights reserved.`;
+
+  const waBtn = document.getElementById('whatsapp-btn');
+  if (fc.whatsapp) waBtn.href = `https://wa.me/${fc.whatsapp.replace(/\D/g,'')}`;
+  else waBtn.style.display = 'none';
+
+  // Hero
+  document.getElementById('hero-title').innerHTML = C.heroHeadline || 'PUSH<br><em>HARDER.</em>';
+  document.getElementById('hero-sub').textContent = C.heroSubtext || '';
+  const ctaEl = document.getElementById('hero-cta');
+  ctaEl.textContent = C.heroCTA || 'Shop Now';
+  ctaEl.href = C.heroCTALink || 'products.html';
+  const secEl = document.getElementById('hero-secondary');
+  secEl.textContent = C.heroSecondary || 'See Deals';
+  secEl.href = C.heroSecondaryLink || 'products.html?filter=specials';
+
+  if (C.delivery?.freeOver) document.getElementById('stat-free-over').textContent = C.delivery.freeOver;
+
+  // Section visibility
+  const secs = C.sections || {};
+  document.querySelectorAll('[data-section]').forEach(el => {
+    const key = el.dataset.section;
+    if (key in secs && secs[key] === false) el.style.display = 'none';
+    else if (key in secs && secs[key] === true) el.style.removeProperty('display');
+  });
+
+  // Categories
+  document.getElementById('cats-grid').innerHTML = (C.categories||[]).map(cat => `
+    <div class="kn-cat-card" onclick="window.location='products.html?cat=${cat.slug}'">
+      <div class="icon">${cat.icon}</div>
+      <div class="label">${cat.label}</div>
+    </div>`).join('');
+
+  // Init engine + load products
+  await RebelEngine.init({ clientId: C.clientId, apiBase: C.apiBase });
+
+  const featured = await Products.getFeatured(8);
+  const grid = document.getElementById('featured-grid');
+  const cur = C.currency || 'R';
+
+  if (!featured.length) {
+    grid.innerHTML = `<div class="kn-empty" style="grid-column:1/-1"><h3>No Products Yet</h3><p>Products added via the dashboard will appear here.</p></div>`;
+  } else {
+    grid.innerHTML = featured.map(p => {
+      const img = p.images?.[0] || p.image || `https://placehold.co/400x400/1a1a1a/c8ff00?text=${encodeURIComponent(p.name)}`;
+      const qty = p.stock ?? p.quantity ?? 0;
+      const priceStr = Number(p.price||0).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2});
+      const wasHTML = p.comparePrice ? `<span class="kn-card__was">${cur} ${Number(p.comparePrice).toLocaleString('en-ZA',{minimumFractionDigits:2})}</span>` : '';
+      return `
+        <article class="kn-card" onclick="window.location='product.html?id=${p._id}'">
+          <div class="kn-card__media">
+            <img src="${img}" alt="${p.name}" loading="lazy">
+            ${p.badge ? `<span class="kn-card__badge">${p.badge}</span>` : ''}
+            <button class="kn-card__wishlist" onclick="event.stopPropagation();toggleWishlist('${p._id}',this)">♡</button>
+          </div>
+          <div class="kn-card__body">
+            ${p.category ? `<p class="kn-card__cat">${p.category}</p>` : ''}
+            <h3 class="kn-card__name">${p.name}</h3>
+            <div class="kn-card__pricing">
+              <span class="kn-card__price">${cur} ${priceStr}</span>${wasHTML}
+            </div>
+            <button class="kn-card__add ${qty===0?'kn-card__out':''}" onclick="event.stopPropagation();addToCart('${p._id}','${p.name.replace(/'/g,"\\'")}',${p.price},this)">
+              ${qty===0 ? 'OUT OF STOCK' : '+ ADD TO CART'}
+            </button>
+          </div>
+        </article>`;
+    }).join('');
+  }
+
+  window.addEventListener('scroll', () => {
+    document.querySelector('.kn-nav').classList.toggle('scrolled', scrollY > 60);
+  }, { passive: true });
+
+  document.querySelector('[data-hamburger]').addEventListener('click', function() {
+    this.classList.toggle('active');
+    document.getElementById('mobile-nav').classList.toggle('open');
+  });
+
+  document.querySelectorAll('[data-cart-icon]').forEach(el => el.addEventListener('click', () => window.location='cart.html'));
+  Cart.updateBadge();
+  Wishlist.updateBadge();
+})();
+
+function addToCart(id, name, price, btn) {
+  Cart.add({ id, name, price, qty: 1 });
+  btn.textContent = '✓ ADDED';
+  btn.classList.add('added');
+  setTimeout(() => { btn.textContent = '+ ADD TO CART'; btn.classList.remove('added'); }, 1800);
+  Cart.updateBadge();
+  showToast(`${name} added`);
+}
+function toggleWishlist(id, btn) {
+  if (Wishlist.has(id)) { Wishlist.remove(id); btn.textContent='♡'; btn.classList.remove('active'); }
+  else { Wishlist.add(id); btn.textContent='♥'; btn.classList.add('active'); }
+  Wishlist.updateBadge();
+}
+function handleNewsletter(e) { e.preventDefault(); showToast('Subscribed! 🔥'); e.target.reset(); }
+function showToast(msg) {
+  const t = document.createElement('div'); t.className='kn-toast'; t.textContent=msg;
+  document.body.appendChild(t); setTimeout(()=>t.remove(),2600);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,1537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rebel Engine — Block Library</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root {
+  --bg:       #0d0d0d;
+  --bg2:      #141414;
+  --bg3:      #1a1a1a;
+  --bg4:      #222222;
+  --border:   #2a2a2a;
+  --border2:  #333333;
+  --text:     #e8e8e8;
+  --muted:    #777;
+  --accent:   #7c6dfa;
+  --accent2:  #fa6d7c;
+  --green:    #4ade80;
+  --yellow:   #fbbf24;
+  --blue:     #60a5fa;
+  --orange:   #fb923c;
+  --font:     'Inter', sans-serif;
+  --mono:     'JetBrains Mono', monospace;
+  --radius:   8px;
+  --radius-lg:14px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.6; min-height: 100vh; }
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; border: none; font: inherit; }
+img { max-width: 100%; display: block; }
+
+/* ── LAYOUT ── */
+.shell { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  width: 260px;
+  overflow-y: auto;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+.sidebar__logo {
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sidebar__logo-mark {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 0.88rem; font-weight: 800; letter-spacing: 0.02em;
+  color: var(--text);
+}
+.sidebar__logo-mark span {
+  width: 28px; height: 28px; background: var(--accent);
+  border-radius: 6px; display: flex; align-items: center;
+  justify-content: center; font-size: 0.7rem; color: #fff; font-weight: 900;
+}
+.sidebar__sub { font-size: 0.7rem; color: var(--muted); margin-top: 4px; padding-left: 38px; }
+
+.sidebar__search {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sidebar__search input {
+  width: 100%; background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: var(--radius); color: var(--text); padding: 8px 12px;
+  font-size: 0.78rem; font-family: var(--font); outline: none;
+  transition: border-color 0.2s;
+}
+.sidebar__search input:focus { border-color: var(--accent); }
+.sidebar__search input::placeholder { color: var(--muted); }
+
+.sidebar__nav { padding: 12px 8px; flex: 1; }
+.sidebar__section-title {
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--muted);
+  padding: 10px 12px 6px;
+}
+.sidebar__item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: var(--radius);
+  font-size: 0.8rem; font-weight: 500; color: var(--muted);
+  cursor: pointer; transition: all 0.15s; margin-bottom: 1px;
+}
+.sidebar__item:hover { background: var(--bg3); color: var(--text); }
+.sidebar__item.active { background: rgba(124,109,250,0.12); color: var(--accent); }
+.sidebar__item .icon { font-size: 0.9rem; width: 18px; text-align: center; flex-shrink: 0; }
+.sidebar__item .badge {
+  margin-left: auto; background: var(--bg4); color: var(--muted);
+  font-size: 0.6rem; padding: 1px 6px; border-radius: 100px; font-family: var(--mono);
+}
+.sidebar__item.active .badge { background: rgba(124,109,250,0.2); color: var(--accent); }
+
+.sidebar__footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  font-size: 0.7rem; color: var(--muted);
+  flex-shrink: 0;
+}
+
+/* ── MAIN ── */
+.main { margin-left: 260px; }
+
+/* ── TOP BAR ── */
+.topbar {
+  position: sticky; top: 0; z-index: 90;
+  background: rgba(13,13,13,0.9);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px;
+  height: 56px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.topbar__title { font-size: 0.88rem; font-weight: 700; }
+.topbar__title span { color: var(--muted); font-weight: 400; }
+.topbar__actions { display: flex; gap: 8px; }
+.topbar__btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: var(--radius);
+  font-size: 0.75rem; font-weight: 600;
+  background: var(--bg3); color: var(--muted);
+  border: 1px solid var(--border2);
+  transition: all 0.2s;
+}
+.topbar__btn:hover { background: var(--bg4); color: var(--text); }
+.topbar__btn--accent { background: var(--accent); color: #fff; border-color: var(--accent); }
+.topbar__btn--accent:hover { filter: brightness(1.1); }
+
+/* ── CONTENT ── */
+.content { padding: 32px; }
+.content > * + * { margin-top: 20px; }
+
+/* ── PAGE ANATOMY ── */
+.anatomy-section { margin-bottom: 40px; }
+.anatomy-section h2 {
+  font-size: 1.2rem; font-weight: 800; margin-bottom: 6px;
+  display: flex; align-items: center; gap: 10px;
+}
+.anatomy-section h2::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+.anatomy-section p { font-size: 0.83rem; color: var(--muted); margin-bottom: 20px; }
+
+/* ── PAGE ANATOMY DIAGRAM ── */
+.page-anatomy {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+.anatomy-visual {
+  border-right: 1px solid var(--border);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.anatomy-visual__title { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+.slot {
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font-size: 0.72rem; font-weight: 600;
+  display: flex; align-items: center; gap: 8px;
+  cursor: pointer; transition: all 0.2s;
+  border: 1px solid transparent;
+  position: relative;
+}
+.slot--fixed   { background: rgba(251,191,36,0.1); color: var(--yellow); border-color: rgba(251,191,36,0.2); }
+.slot--block   { background: rgba(124,109,250,0.1); color: var(--accent); border-color: rgba(124,109,250,0.2); }
+.slot--block:hover { background: rgba(124,109,250,0.18); }
+.slot--utility { background: rgba(74,222,128,0.1); color: var(--green); border-color: rgba(74,222,128,0.2); }
+.slot__dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.slot__tag {
+  margin-left: auto;
+  font-size: 0.6rem; font-family: var(--mono);
+  opacity: 0.6;
+}
+.slot-gap { height: 3px; }
+.slot-section-label {
+  font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted);
+  padding: 4px 0 2px;
+}
+
+.anatomy-guide {
+  padding: 24px;
+  overflow-y: auto;
+  max-height: 520px;
+}
+.anatomy-guide::-webkit-scrollbar { width: 4px; }
+.anatomy-guide::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+.anatomy-guide__title { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
+.guide-step { display: flex; gap: 12px; margin-bottom: 18px; }
+.guide-step__num {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--accent); color: #fff;
+  font-size: 0.65rem; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 1px;
+}
+.guide-step__body { flex: 1; }
+.guide-step__title { font-size: 0.8rem; font-weight: 700; margin-bottom: 3px; }
+.guide-step__desc  { font-size: 0.74rem; color: var(--muted); line-height: 1.55; }
+.guide-step__code  {
+  margin-top: 6px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 8px 10px;
+  font-family: var(--mono); font-size: 0.68rem;
+  color: var(--accent); overflow-x: auto;
+  white-space: pre;
+  line-height: 1.6;
+}
+
+/* Legend */
+.legend { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 12px; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--muted); }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* ── BLOCK CARDS ── */
+.blocks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+.block-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.block-card:hover { border-color: var(--border2); }
+.block-card__preview {
+  height: 180px;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg3);
+  display: flex; align-items: center; justify-content: center;
+}
+.block-card__preview img { width: 100%; height: 100%; object-fit: cover; opacity: 0.7; }
+.block-card__preview-ui {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  padding: 16px;
+  justify-content: flex-end;
+}
+.block-card__badge {
+  position: absolute; top: 10px; right: 10px;
+  font-size: 0.6rem; font-weight: 800; letter-spacing: 0.1em;
+  text-transform: uppercase; padding: 3px 8px; border-radius: 100px;
+  font-family: var(--mono);
+}
+.block-card__badge--hero   { background: rgba(251,191,36,0.2); color: var(--yellow); }
+.block-card__badge--media  { background: rgba(96,165,250,0.2); color: var(--blue); }
+.block-card__badge--social { background: rgba(74,222,128,0.2); color: var(--green); }
+.block-card__badge--util   { background: rgba(251,146,60,0.2); color: var(--orange); }
+.block-card__badge--product{ background: rgba(124,109,250,0.2); color: var(--accent); }
+
+.block-card__body { padding: 16px; }
+.block-card__name { font-size: 0.9rem; font-weight: 700; margin-bottom: 4px; }
+.block-card__desc { font-size: 0.75rem; color: var(--muted); line-height: 1.55; margin-bottom: 12px; }
+.block-card__meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.block-card__tag {
+  font-size: 0.62rem; font-family: var(--mono); font-weight: 600;
+  padding: 2px 8px; border-radius: 100px;
+  background: var(--bg4); color: var(--muted); border: 1px solid var(--border2);
+}
+.block-card__file {
+  font-size: 0.65rem; font-family: var(--mono); color: var(--muted);
+  padding: 2px 8px; border-radius: 100px;
+  background: rgba(124,109,250,0.08); color: var(--accent);
+  border: 1px solid rgba(124,109,250,0.15);
+}
+.block-card__actions { display: flex; gap: 8px; }
+.block-card__btn {
+  flex: 1; padding: 8px; border-radius: var(--radius);
+  font-size: 0.73rem; font-weight: 600; border: 1px solid var(--border2);
+  background: var(--bg3); color: var(--muted);
+  transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.block-card__btn:hover { background: var(--bg4); color: var(--text); }
+.block-card__btn--copy { background: rgba(124,109,250,0.1); color: var(--accent); border-color: rgba(124,109,250,0.25); }
+.block-card__btn--copy:hover { background: rgba(124,109,250,0.2); }
+.block-card__btn--copy.copied { background: rgba(74,222,128,0.1); color: var(--green); border-color: rgba(74,222,128,0.25); }
+
+/* ── WHERE IT GOES ── */
+.placement-map {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.placement-map__header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.78rem; font-weight: 700;
+  display: flex; align-items: center; gap: 8px;
+}
+.placement-map__grid {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+}
+.placement-map__pages {
+  border-right: 1px solid var(--border);
+  padding: 12px 0;
+}
+.pm-page {
+  padding: 10px 16px;
+  font-size: 0.78rem; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
+  color: var(--muted);
+  border-left: 2px solid transparent;
+}
+.pm-page:hover { background: var(--bg3); color: var(--text); }
+.pm-page.active { color: var(--accent); border-left-color: var(--accent); background: rgba(124,109,250,0.06); }
+.placement-map__slots {
+  padding: 16px 20px;
+}
+.pm-slot {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.pm-slot:last-child { border-bottom: none; }
+.pm-slot__order {
+  width: 22px; height: 22px; border-radius: var(--radius);
+  background: var(--bg4); color: var(--muted);
+  font-size: 0.62rem; font-weight: 800; font-family: var(--mono);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.pm-slot__name { font-size: 0.8rem; font-weight: 700; margin-bottom: 2px; }
+.pm-slot__desc { font-size: 0.72rem; color: var(--muted); }
+.pm-slot__blocks { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.pm-slot__block-tag {
+  font-size: 0.65rem; font-family: var(--mono); font-weight: 700;
+  padding: 2px 8px; border-radius: 4px;
+  background: rgba(124,109,250,0.1); color: var(--accent);
+  border: 1px solid rgba(124,109,250,0.2); cursor: pointer;
+  transition: all 0.15s;
+}
+.pm-slot__block-tag:hover { background: rgba(124,109,250,0.2); }
+.pm-slot__block-tag--fixed { background: rgba(251,191,36,0.1); color: var(--yellow); border-color: rgba(251,191,36,0.2); cursor: default; }
+
+/* ── WORKFLOW ── */
+.workflow {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+.workflow h3 { font-size: 0.8rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 20px; }
+.workflow-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+.workflow-step {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 18px;
+  position: relative;
+}
+.workflow-step__num {
+  width: 28px; height: 28px; border-radius: var(--radius);
+  background: var(--accent); color: #fff;
+  font-size: 0.72rem; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 12px; font-family: var(--mono);
+}
+.workflow-step__title { font-size: 0.83rem; font-weight: 700; margin-bottom: 6px; }
+.workflow-step__desc  { font-size: 0.72rem; color: var(--muted); line-height: 1.6; }
+.workflow-step__arrow {
+  position: absolute; right: -21px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--border2); font-size: 1rem; z-index: 1;
+}
+
+/* ── AI PROMPT TIPS ── */
+.ai-tips {
+  background: linear-gradient(135deg, rgba(124,109,250,0.08) 0%, rgba(250,109,124,0.05) 100%);
+  border: 1px solid rgba(124,109,250,0.2);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+.ai-tips h3 { font-size: 1rem; font-weight: 800; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+.ai-tips p { font-size: 0.78rem; color: var(--muted); margin-bottom: 20px; }
+.prompt-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.prompt-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 14px;
+  cursor: pointer; transition: border-color 0.2s;
+}
+.prompt-card:hover { border-color: var(--accent); }
+.prompt-card__label { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; font-family: var(--mono); }
+.prompt-card__text  { font-size: 0.78rem; color: var(--muted); line-height: 1.55; font-family: var(--mono); }
+.prompt-card__copy  { font-size: 0.65rem; color: var(--accent); margin-top: 8px; opacity: 0; transition: opacity 0.2s; }
+.prompt-card:hover .prompt-card__copy { opacity: 1; }
+
+/* ── CODE BLOCK ── */
+.code-block {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px;
+  font-family: var(--mono); font-size: 0.72rem;
+  line-height: 1.7; overflow-x: auto;
+  position: relative;
+}
+.code-block .comment { color: var(--muted); }
+.code-block .tag     { color: var(--blue); }
+.code-block .str     { color: var(--green); }
+.code-block .key     { color: var(--accent); }
+.code-block .val     { color: var(--orange); }
+
+/* ── SECTION HEADERS ── */
+.section-hd {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.section-hd h2 { font-size: 1rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.section-hd__sub { font-size: 0.75rem; color: var(--muted); }
+
+/* ── TABS ── */
+.tabs { display: flex; gap: 4px; background: var(--bg2); padding: 4px; border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 20px; width: fit-content; }
+.tab { padding: 6px 16px; border-radius: 6px; font-size: 0.76rem; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+.tab.active { background: var(--bg4); color: var(--text); }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+  background: var(--green); color: #000;
+  padding: 10px 20px; border-radius: var(--radius);
+  font-size: 0.78rem; font-weight: 700; font-family: var(--mono);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  transform: translateY(100px); opacity: 0;
+  transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+  pointer-events: none;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+
+/* ── SECTION VIEWS ── */
+.view { display: none; }
+.view.active { display: block; }
+
+/* Preview mock boxes */
+.mock-hero { background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: var(--radius); height: 140px; display:flex; align-items:center; padding:16px; position:relative; overflow:hidden; }
+.mock-hero__bg { position:absolute;inset:0;background-size:cover;background-position:center;opacity:0.3; }
+.mock-hero__content { position:relative;z-index:1; }
+.mock-hero__label { font-size:0.55rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#fa6d7c;margin-bottom:4px; }
+.mock-hero__title { font-size:0.9rem;font-weight:800;line-height:1.1;color:#fff; }
+.mock-hero__title em { color:#7c6dfa;font-style:italic; }
+.mock-hero__sub { font-size:0.58rem;color:rgba(255,255,255,0.5);margin:4px 0 8px; }
+.mock-btn { display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#7c6dfa;color:#fff;border-radius:4px;font-size:0.6rem;font-weight:700; }
+.mock-btn--ghost { background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2); }
+.mock-dots { position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:4px; }
+.mock-dot { width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,0.3); }
+.mock-dot.active { background:#7c6dfa;width:14px;border-radius:3px; }
+.mock-arrows { position:absolute;top:50%;transform:translateY(-50%);width:100%;display:flex;justify-content:space-between;padding:0 8px; }
+.mock-arrow { width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:#fff; }
+
+.mock-video { background:#000;border-radius:var(--radius);height:140px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden; }
+.mock-video img { position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.4; }
+.mock-video__play { position:relative;z-index:1;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.1);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:0.8rem;color:#fff; }
+
+.mock-stats { background:var(--bg3);border-radius:var(--radius);padding:16px 20px;display:flex;justify-content:space-around;align-items:center;gap:0; }
+.mock-stat { text-align:center; }
+.mock-stat__num { font-size:1.4rem;font-weight:900;color:#7c6dfa;font-family:var(--mono);line-height:1; }
+.mock-stat__lbl { font-size:0.55rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-top:3px; }
+.mock-stat-div { width:1px;height:36px;background:var(--border); }
+
+.mock-testi { background:var(--bg3);border-radius:var(--radius);padding:14px;position:relative; }
+.mock-testi__stars { color:#fbbf24;font-size:0.6rem;margin-bottom:6px; }
+.mock-testi__quote { font-size:0.65rem;color:rgba(255,255,255,0.6);font-style:italic;line-height:1.5;margin-bottom:8px; }
+.mock-testi__author { display:flex;align-items:center;gap:6px; }
+.mock-testi__av { width:20px;height:20px;border-radius:50%;background:#7c6dfa;font-size:0.5rem;font-weight:800;display:flex;align-items:center;justify-content:center;color:#fff; }
+.mock-testi__name { font-size:0.62rem;font-weight:700; }
+
+.mock-bar { background:#1c1208;border-radius:4px;height:32px;display:flex;align-items:center;justify-content:center;font-size:0.62rem;color:rgba(255,255,255,0.7);font-weight:600;position:relative; }
+.mock-bar__msg span { color:#fb923c; }
+.mock-bar__x { position:absolute;right:8px;color:rgba(255,255,255,0.3);font-size:0.7rem; }
+
+.mock-collage { border-radius:var(--radius);overflow:hidden;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:80px 80px;gap:3px;height:163px; }
+.mock-collage-item { background:var(--bg3);overflow:hidden; }
+.mock-collage-item img { width:100%;height:100%;object-fit:cover;opacity:0.7; }
+.mock-collage-item.tall { grid-row:span 2; }
+
+.mock-parallax { border-radius:var(--radius);height:140px;background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden; }
+.mock-parallax::before { content:'';position:absolute;inset:0;background:rgba(0,0,0,0.55); }
+.mock-parallax__content { position:relative;z-index:1;text-align:center; }
+.mock-parallax__title { font-size:0.85rem;font-weight:800;color:#fff;font-family:serif; }
+.mock-parallax__title em { color:#7c6dfa;font-style:italic; }
+
+.mock-ba { border-radius:var(--radius);height:140px;background:#111;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center; }
+.mock-ba__before { position:absolute;left:0;top:0;width:50%;height:100%;overflow:hidden; }
+.mock-ba__before img { width:200%;height:100%;object-fit:cover;filter:grayscale(100%); }
+.mock-ba__after { position:absolute;right:0;top:0;width:50%;height:100%;overflow:hidden; }
+.mock-ba__after img { width:200%;height:100%;object-fit:cover;float:right; }
+.mock-ba__handle { position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);width:2px;background:#fff;z-index:2; }
+.mock-ba__handle::after { content:'↔';position:absolute;top:50%;transform:translateY(-50%);left:-16px;width:34px;height:26px;background:#fff;color:#000;border-radius:100px;font-size:0.7rem;font-weight:800;display:flex;align-items:center;justify-content:center; }
+
+.mock-gallery { display:grid;grid-template-columns:1fr;gap:6px; }
+.mock-gallery__main { background:var(--bg3);border-radius:var(--radius);height:100px;overflow:hidden; }
+.mock-gallery__main img { width:100%;height:100%;object-fit:cover;opacity:0.8; }
+.mock-gallery__thumbs { display:flex;gap:4px; }
+.mock-gallery__thumb { width:28px;height:28px;border-radius:4px;overflow:hidden;border:1px solid var(--border);flex-shrink:0; }
+.mock-gallery__thumb img { width:100%;height:100%;object-fit:cover;opacity:0.8; }
+.mock-gallery__thumb.active { border-color:#7c6dfa; }
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .main { margin-left: 0; }
+  .page-anatomy { grid-template-columns: 1fr; }
+  .anatomy-guide { border-top: 1px solid var(--border); border-right: none; max-height: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar">
+  <div class="sidebar__logo">
+    <div class="sidebar__logo-mark"><span>RE</span> Rebel Engine</div>
+    <div class="sidebar__sub">Block Library v1.0</div>
+  </div>
+  <div class="sidebar__search">
+    <input type="text" placeholder="Search blocks..." id="block-search" oninput="searchBlocks(this.value)">
+  </div>
+  <nav class="sidebar__nav">
+    <div class="sidebar__section-title">Get Started</div>
+    <div class="sidebar__item active" onclick="showView('overview')">
+      <span class="icon">🗺️</span> How It All Works
+    </div>
+    <div class="sidebar__item" onclick="showView('anatomy')">
+      <span class="icon">🔬</span> Page Anatomy
+    </div>
+    <div class="sidebar__item" onclick="showView('workflow')">
+      <span class="icon">⚡</span> Your Workflow
+    </div>
+
+    <div class="sidebar__section-title" style="margin-top:8px;">Block Library</div>
+    <div class="sidebar__item" onclick="showView('all-blocks')">
+      <span class="icon">📦</span> All Blocks <span class="badge">10</span>
+    </div>
+    <div class="sidebar__item" onclick="filterBlocks('hero')">
+      <span class="icon">🦸</span> Heroes <span class="badge">3</span>
+    </div>
+    <div class="sidebar__item" onclick="filterBlocks('media')">
+      <span class="icon">🖼️</span> Media <span class="badge">2</span>
+    </div>
+    <div class="sidebar__item" onclick="filterBlocks('social')">
+      <span class="icon">⭐</span> Social Proof <span class="badge">2</span>
+    </div>
+    <div class="sidebar__item" onclick="filterBlocks('product')">
+      <span class="icon">🛍️</span> Products <span class="badge">1</span>
+    </div>
+    <div class="sidebar__item" onclick="filterBlocks('utility')">
+      <span class="icon">🔧</span> Utility <span class="badge">2</span>
+    </div>
+
+    <div class="sidebar__section-title" style="margin-top:8px;">AI Assistance</div>
+    <div class="sidebar__item" onclick="showView('ai-prompts')">
+      <span class="icon">🤖</span> AI Prompt Templates
+    </div>
+  </nav>
+  <div class="sidebar__footer">
+    10 blocks ready · 2 themes · 1 engine
+  </div>
+</aside>
+
+<!-- ── MAIN ── -->
+<main class="main">
+
+  <div class="topbar">
+    <div class="topbar__title" id="topbar-title">How It All Works <span>— Start here</span></div>
+    <div class="topbar__actions">
+      <button class="topbar__btn" onclick="window.open('harvest-co/index.html')">Preview Harvest & Co →</button>
+      <button class="topbar__btn" onclick="window.open('kinetic/index.html')">Preview Kinetic →</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ═══ VIEW: OVERVIEW ═══ -->
+    <div class="view active" id="view-overview">
+
+      <div class="anatomy-section">
+        <h2>The Big Picture</h2>
+        <p>Here's how your entire agency system is structured — from this file to a live client store.</p>
+      </div>
+
+      <!-- System map -->
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;margin-bottom:20px;">
+        <div style="display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:12px;align-items:center;">
+
+          <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:18px;">
+            <div style="font-size:0.62rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--yellow);margin-bottom:10px;font-family:var(--mono);">① Your Template Files</div>
+            <div style="font-size:0.75rem;color:var(--muted);line-height:1.8;">
+              <div>📁 <strong style="color:var(--text)">harvest-co/</strong></div>
+              <div style="padding-left:16px;font-family:var(--mono);font-size:0.68rem;">
+                ├ index.html<br>
+                ├ products.html<br>
+                ├ cart.html<br>
+                ├ checkout.html<br>
+                └ STORE_CONFIG.js ⭐
+              </div>
+              <div style="margin-top:6px;">📁 <strong style="color:var(--text)">kinetic/</strong></div>
+              <div style="padding-left:16px;font-family:var(--mono);font-size:0.68rem;">└ (same structure)</div>
+            </div>
+          </div>
+
+          <div style="color:var(--muted);font-size:1.4rem;text-align:center;">+</div>
+
+          <div style="background:rgba(124,109,250,0.08);border:1px solid rgba(124,109,250,0.2);border-radius:var(--radius-lg);padding:18px;">
+            <div style="font-size:0.62rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;font-family:var(--mono);">② Blocks (this library)</div>
+            <div style="font-size:0.75rem;color:var(--muted);line-height:1.8;">
+              <div>📁 <strong style="color:var(--text)">blocks/</strong></div>
+              <div style="padding-left:16px;font-family:var(--mono);font-size:0.68rem;">
+                ├ re-blocks.css<br>
+                ├ re-blocks.js<br>
+                ├ heroes/…<br>
+                ├ media/…<br>
+                ├ social-proof/…<br>
+                └ utility/…
+              </div>
+            </div>
+            <div style="margin-top:10px;padding:6px 10px;background:rgba(124,109,250,0.1);border-radius:6px;font-size:0.68rem;color:var(--accent);font-family:var(--mono);">
+              Copy a block → paste into page
+            </div>
+          </div>
+
+          <div style="color:var(--muted);font-size:1.4rem;text-align:center;">=</div>
+
+          <div style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.2);border-radius:var(--radius-lg);padding:18px;">
+            <div style="font-size:0.62rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--green);margin-bottom:10px;font-family:var(--mono);">③ Live Client Store</div>
+            <div style="font-size:0.75rem;color:var(--muted);line-height:1.8;">
+              <div>🌐 petesbutchery.co.za</div>
+              <div style="margin-top:6px;font-size:0.7rem;">
+                Announcement bar<br>
+                Nav (fixed)<br>
+                <strong style="color:var(--text)">Hero carousel</strong> ← block<br>
+                <strong style="color:var(--text)">Stats counter</strong> ← block<br>
+                Featured products<br>
+                <strong style="color:var(--text)">Testimonials</strong> ← block<br>
+                <strong style="color:var(--text)">Parallax banner</strong> ← block<br>
+                Footer (fixed)<br>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3 rules -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;">
+          <div style="font-size:1.3rem;margin-bottom:8px;">📄</div>
+          <div style="font-size:0.82rem;font-weight:700;margin-bottom:4px;">1 — STORE_CONFIG.js is everything</div>
+          <div style="font-size:0.72rem;color:var(--muted);line-height:1.6;">Colours, store name, hero text, categories, contact, delivery rules — one file, no HTML touching needed for a new client.</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;">
+          <div style="font-size:1.3rem;margin-bottom:8px;">🧩</div>
+          <div style="font-size:0.82rem;font-weight:700;margin-bottom:4px;">2 — Blocks snap into any page</div>
+          <div style="font-size:0.72rem;color:var(--muted);line-height:1.6;">Every block is self-contained HTML + CSS + JS. Copy the code between the BLOCK START and BLOCK END comments. Drop it where you want it.</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;">
+          <div style="font-size:1.3rem;margin-bottom:8px;">🤖</div>
+          <div style="font-size:0.82rem;font-weight:700;margin-bottom:4px;">3 — AI fills in the gaps</div>
+          <div style="font-size:0.72rem;color:var(--muted);line-height:1.6;">Need something custom? Describe it to Claude with the context prompts in the AI tab. It knows your system and can modify any block without breaking things.</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ═══ VIEW: PAGE ANATOMY ═══ -->
+    <div class="view" id="view-anatomy">
+      <div class="anatomy-section">
+        <h2>Page Anatomy</h2>
+        <p>Every page in your templates follows this structure. <strong style="color:var(--yellow)">Yellow</strong> = fixed (don't move). <strong style="color:var(--accent)">Purple</strong> = block zones (drop blocks here). <strong style="color:var(--green)">Green</strong> = utility blocks.</p>
+      </div>
+
+      <div class="page-anatomy">
+        <div class="anatomy-visual">
+          <div class="anatomy-visual__title">index.html structure</div>
+
+          <div class="slot slot--utility">
+            <div class="slot__dot"></div> Announcement Bar
+            <span class="slot__tag">ABOVE nav</span>
+          </div>
+
+          <div class="slot slot--fixed">
+            <div class="slot__dot"></div> &lt;nav&gt; Navigation
+            <span class="slot__tag">fixed</span>
+          </div>
+
+          <div class="slot-gap"></div>
+          <div class="slot-section-label">HERO ZONE — pick one</div>
+          <div class="slot slot--block" onclick="filterBlocks('hero');showView('all-blocks')">
+            <div class="slot__dot"></div> hero-carousel / hero-video / hero-parallax
+            <span class="slot__tag">swap freely</span>
+          </div>
+
+          <div class="slot-gap"></div>
+          <div class="slot-section-label">CONTENT ZONES — add any order</div>
+          <div class="slot slot--block" onclick="filterBlocks('social');showView('all-blocks')">
+            <div class="slot__dot"></div> Stats Counter
+            <span class="slot__tag">optional</span>
+          </div>
+          <div class="slot slot--fixed">
+            <div class="slot__dot"></div> Categories Grid
+            <span class="slot__tag">in template</span>
+          </div>
+          <div class="slot slot--fixed">
+            <div class="slot__dot"></div> Featured Products
+            <span class="slot__tag">in template</span>
+          </div>
+          <div class="slot slot--block" onclick="filterBlocks('media');showView('all-blocks')">
+            <div class="slot__dot"></div> Image Collage / Parallax Banner
+            <span class="slot__tag">optional</span>
+          </div>
+          <div class="slot slot--block" onclick="filterBlocks('social');showView('all-blocks')">
+            <div class="slot__dot"></div> Testimonials Carousel
+            <span class="slot__tag">optional</span>
+          </div>
+          <div class="slot slot--fixed">
+            <div class="slot__dot"></div> Newsletter Banner
+            <span class="slot__tag">in template</span>
+          </div>
+
+          <div class="slot-gap"></div>
+          <div class="slot slot--fixed">
+            <div class="slot__dot"></div> &lt;footer&gt; Footer
+            <span class="slot__tag">fixed</span>
+          </div>
+          <div class="slot slot--utility">
+            <div class="slot__dot"></div> WhatsApp Float Button
+            <span class="slot__tag">utility</span>
+          </div>
+
+          <div class="legend" style="margin-top:14px;">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div> Fixed — already in template</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div> Block zone — drop blocks here</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> Utility — optional extras</div>
+          </div>
+        </div>
+
+        <div class="anatomy-guide">
+          <div class="anatomy-guide__title">How to drop a block in</div>
+
+          <div class="guide-step">
+            <div class="guide-step__num">1</div>
+            <div class="guide-step__body">
+              <div class="guide-step__title">Open your page in VS Code (or any editor)</div>
+              <div class="guide-step__desc">Open <code style="font-family:var(--mono);color:var(--accent)">harvest-co/index.html</code> or whichever page you're editing.</div>
+            </div>
+          </div>
+
+          <div class="guide-step">
+            <div class="guide-step__num">2</div>
+            <div class="guide-step__body">
+              <div class="guide-step__title">Find where you want the block</div>
+              <div class="guide-step__desc">Look for the section comments like <code style="font-family:var(--mono);color:var(--accent)">&lt;!-- ══ FEATURED PRODUCTS ══ --&gt;</code>. Place your cursor above or below it.</div>
+            </div>
+          </div>
+
+          <div class="guide-step">
+            <div class="guide-step__num">3</div>
+            <div class="guide-step__body">
+              <div class="guide-step__title">Copy the block code from this library</div>
+              <div class="guide-step__desc">Click "Copy Code" on any block card. It copies everything between BLOCK START and BLOCK END — the HTML, CSS, and JS all included.</div>
+            </div>
+          </div>
+
+          <div class="guide-step">
+            <div class="guide-step__num">4</div>
+            <div class="guide-step__body">
+              <div class="guide-step__title">Paste it in, save, refresh</div>
+              <div class="guide-step__desc">That's it. The block reads your theme colours automatically. No CSS file editing needed.</div>
+              <div class="guide-step__code">/* Before */
+&lt;!-- ══ FEATURED PRODUCTS ══ --&gt;
+&lt;section id="section-featuredProducts"&gt;...
+
+/* After: paste the block above it */
+&lt;!-- ═══ BLOCK START: stats-counter ═══ --&gt;
+&lt;section class="re-stats"&gt;...
+&lt;!-- ═══ BLOCK END: stats-counter ═══ --&gt;
+
+&lt;!-- ══ FEATURED PRODUCTS ══ --&gt;</div>
+            </div>
+          </div>
+
+          <div class="guide-step">
+            <div class="guide-step__num">5</div>
+            <div class="guide-step__body">
+              <div class="guide-step__title">Add re-blocks.js once per page</div>
+              <div class="guide-step__desc">If using ANY animated block (parallax, carousel, stats counter, before/after), add this script just before <code style="font-family:var(--mono);color:var(--accent)">&lt;/body&gt;</code>.</div>
+              <div class="guide-step__code">&lt;script src="../blocks/re-blocks.js"&gt;&lt;/script&gt;
+&lt;script src="STORE_CONFIG.js"&gt;&lt;/script&gt;
+&lt;script src="../shared/rebel-engine.js"&gt;&lt;/script&gt;</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ VIEW: WORKFLOW ═══ -->
+    <div class="view" id="view-workflow">
+      <div class="anatomy-section">
+        <h2>Your Agency Workflow</h2>
+        <p>From "new client signed" to "live store" — exactly what you do at each step.</p>
+      </div>
+
+      <div class="workflow">
+        <h3>New Client Onboarding → Live Store</h3>
+        <div class="workflow-steps">
+          <div class="workflow-step">
+            <div class="workflow-step__arrow">→</div>
+            <div class="workflow-step__num">1</div>
+            <div class="workflow-step__title">Create tenant</div>
+            <div class="workflow-step__desc">Log into super-admin panel. Create new tenant. Copy the generated <code style="font-family:var(--mono);color:var(--accent)">clientId</code>.</div>
+          </div>
+          <div class="workflow-step">
+            <div class="workflow-step__arrow">→</div>
+            <div class="workflow-step__num">2</div>
+            <div class="workflow-step__title">Pick template</div>
+            <div class="workflow-step__desc">Butchery/food? → <strong>harvest-co</strong><br>Gym/supplements? → <strong>kinetic</strong><br>Copy the folder.</div>
+          </div>
+          <div class="workflow-step">
+            <div class="workflow-step__arrow">→</div>
+            <div class="workflow-step__num">3</div>
+            <div class="workflow-step__title">Fill STORE_CONFIG.js</div>
+            <div class="workflow-step__desc">Name, colours, hero text, categories, contact details. One file. 5–10 minutes.</div>
+          </div>
+          <div class="workflow-step">
+            <div class="workflow-step__arrow">→</div>
+            <div class="workflow-step__num">4</div>
+            <div class="workflow-step__title">Add custom blocks</div>
+            <div class="workflow-step__desc">Open pages in editor. Copy blocks from this library. Drop them in where needed. Use AI for anything custom.</div>
+          </div>
+          <div class="workflow-step">
+            <div class="workflow-step__num">5</div>
+            <div class="workflow-step__title">Deploy + handover</div>
+            <div class="workflow-step__desc">Upload to client domain. Give them their dashboard login. Done — they manage products/orders themselves.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;margin-top:20px;">
+        <div style="font-size:0.8rem;font-weight:800;margin-bottom:16px;">📁 Your Complete Folder Structure</div>
+        <div class="code-block"><span class="comment">rebel-engine/              ← your agency root folder
+│</span>
+<span class="key">├── shared/</span>
+<span class="comment">│   └── rebel-engine.js       ← core engine (never edit)</span>
+│
+<span class="key">├── blocks/</span>               <span class="comment">← this block library</span>
+<span class="comment">│   ├── re-blocks.css         ← add once per page using blocks
+│   ├── re-blocks.js          ← add once per page using blocks
+│   ├── heroes/
+│   │   ├── hero-carousel.html
+│   │   ├── hero-video.html
+│   │   └── hero-parallax.html
+│   ├── media/
+│   │   ├── image-collage.html
+│   │   └── before-after.html
+│   ├── social-proof/
+│   │   ├── stats-counter.html
+│   │   └── testimonials-carousel.html
+│   ├── products/
+│   │   └── product-gallery.html
+│   └── utility/
+│       └── announcement-bar.html</span>
+│
+<span class="key">├── harvest-co/</span>           <span class="comment">← butchery / food template</span>
+<span class="comment">│   ├── STORE_CONFIG.js       ← ⭐ EDIT THIS per client
+│   ├── theme.css
+│   ├── index.html
+│   ├── products.html
+│   ├── cart.html
+│   ├── checkout.html
+│   ├── about.html
+│   └── contact.html</span>
+│
+<span class="key">├── kinetic/</span>              <span class="comment">← sport / fitness template</span>
+<span class="comment">│   └── (same structure as harvest-co)</span>
+│
+<span class="key">├── client-dashboard.html</span> <span class="comment">← client portal (1 file for all clients)</span>
+<span class="key">└── block-library.html</span>    <span class="comment">← YOU ARE HERE</span></div>
+      </div>
+    </div>
+
+    <!-- ═══ VIEW: ALL BLOCKS ═══ -->
+    <div class="view" id="view-all-blocks">
+      <div class="section-hd">
+        <h2 id="blocks-view-title">📦 All Blocks</h2>
+        <div class="tabs" id="block-filter-tabs">
+          <div class="tab active" onclick="filterBlocks('all',this)">All</div>
+          <div class="tab" onclick="filterBlocks('hero',this)">Heroes</div>
+          <div class="tab" onclick="filterBlocks('media',this)">Media</div>
+          <div class="tab" onclick="filterBlocks('social',this)">Social</div>
+          <div class="tab" onclick="filterBlocks('product',this)">Products</div>
+          <div class="tab" onclick="filterBlocks('utility',this)">Utility</div>
+        </div>
+      </div>
+
+      <div class="blocks-grid" id="blocks-grid">
+        <!-- Injected by JS -->
+      </div>
+    </div>
+
+    <!-- ═══ VIEW: AI PROMPTS ═══ -->
+    <div class="view" id="view-ai-prompts">
+      <div class="anatomy-section">
+        <h2>🤖 AI Prompt Templates</h2>
+        <p>Copy these prompts and paste them to Claude (or any AI) when you need to customise blocks. They give Claude the right context so it doesn't break your system. Click any card to copy.</p>
+      </div>
+
+      <div class="prompt-cards">
+
+        <div class="prompt-card" onclick="copyPrompt(this)">
+          <div class="prompt-card__label">Swap hero images</div>
+          <div class="prompt-card__text">I'm using the Rebel Engine hero-carousel block in my harvest-co template. Please update the 3 slide background images to use these URLs: [URL1], [URL2], [URL3]. Keep all the HTML structure and CSS exactly the same.</div>
+          <div class="prompt-card__copy">Click to copy ↑</div>
+        </div>
+
+        <div class="prompt-card" onclick="copyPrompt(this)">
+          <div class="prompt-card__label">Change accent colour only</div>
+          <div class="prompt-card__text">In my Rebel Engine STORE_CONFIG.js, change only the accent color to #e63946. Show me just the updated colors object. Don't change anything else.</div>
+          <div class="prompt-card__copy">Click to copy ↑</div>
+        </div>
+
+        <div class="prompt-card" onclick="copyPrompt(this)">
+          <div class="prompt-card__label">Add a new section</div>
+          <div class="prompt-card__text">I'm using Rebel Engine harvest-co template. I need a "Our Suppliers" section between the categories and featured products. It should show 4 supplier logos with names in a grid. Use the same CSS variable tokens (--hc-primary, --hc-accent etc) and follow the existing block pattern with a BLOCK START and BLOCK END comment.</div>
+          <div class="prompt-card__copy">Click to copy ↑</div>
+        </div>
+
+        <div class="prompt-card" onclick="copyPrompt(this)">
+          <div class="prompt-card__label">Edit the stats counter numbers</div>
+          <div class="prompt-card__text">In my re-stats block, change the 4 stats to: 850+ orders, 99% satisfaction, 200+ products, 48H delivery. Keep all the animation attributes and CSS classes exactly the same.</div>
+          <div class="prompt-card__copy">Click to copy ↑</div>
+        </div>
+
+        <div class="prompt-card" onclick="copyPrompt(this)">
+          <div class="prompt-card__label">Add a video section mid-page</div>
+          <div class="prompt-card__text">I need a mid-page video section for my Rebel Engine harvest-co site. It should have: a dark background, YouTube embed (video ID: XXXXX), headline and short description text to the left, video on the right. Use --hc-* CSS tokens. Self-contained block with BLOCK START/END comments.</div>
+          <div class="prompt-card__copy">Click to copy ↑</div>
+        </div>
+
+        <div class="prompt-card" onclick="copyPrompt(this)">
+          <div class="prompt-card__label">Make collage use different images</div>
+          <div class="prompt-card__text">Update my re-collage-grid block to use images from our store's Instagram feed. The images are: [img1.jpg, img2.jpg, img3.jpg, img4.jpg, img5.jpg, img6.jpg]. Keep the same mosaic grid structure (hero item, tall item, wide item etc). Don't change any class names or CSS.</div>
+          <div class="prompt-card__copy">Click to copy ↑</div>
+        </div>
+
+        <div class="prompt-card" onclick="copyPrompt(this)">
+          <div class="prompt-card__label">Add testimonials from CSV data</div>
+          <div class="prompt-card__text">I have these customer reviews and I want to add them to my testimonials-carousel block: [paste your reviews here]. Update the re-testi__slide divs with the real names, locations, ratings and review text. Keep all carousel JS and CSS exactly the same.</div>
+          <div class="prompt-card__copy">Click to copy ↑</div>
+        </div>
+
+        <div class="prompt-card" onclick="copyPrompt(this)">
+          <div class="prompt-card__label">Build something from scratch</div>
+          <div class="prompt-card__text">I'm building a client site using Rebel Engine. The template is [harvest-co / kinetic]. I need a new section that [describe what you need]. It must use these CSS variable tokens: --hc-primary, --hc-accent, --hc-bg, --hc-text, --hc-font-display, --hc-font-body. Format it as a self-contained block with a &lt;!-- BLOCK START --&gt; and &lt;!-- BLOCK END --&gt; comment, with all CSS in a &lt;style&gt; tag inside the block.</div>
+          <div class="prompt-card__copy">Click to copy ↑</div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</main>
+</div>
+
+<div class="toast" id="toast">✓ Copied to clipboard</div>
+
+<script>
+// ── BLOCK DATA ────────────────────────────────────────────────
+const BLOCKS = [
+  {
+    id: 'hero-carousel',
+    name: 'Hero Carousel',
+    desc: 'Full-width image slider hero with auto-advance, dots, arrows, and swipe support. Reads from STORE_CONFIG automatically.',
+    category: 'hero',
+    file: 'blocks/heroes/hero-carousel.html',
+    tags: ['autoplay', 'swipe', 'config-aware'],
+    features: ['Auto-advance', 'Touch/swipe', 'Dots + arrows', 'STORE_CONFIG aware'],
+    preview: 'carousel',
+    tip: 'Best for stores with 2–4 key selling points to showcase.'
+  },
+  {
+    id: 'hero-video',
+    name: 'Video Hero',
+    desc: 'Full-screen background video hero. Works with self-hosted MP4. Includes sound toggle and scroll hint.',
+    category: 'hero',
+    file: 'blocks/heroes/hero-video.html',
+    tags: ['video', 'fullscreen', 'mute-toggle'],
+    features: ['Background video', 'Sound toggle', 'Scroll indicator', 'Fallback image'],
+    preview: 'video',
+    tip: 'Use a short looping clip (15–30s). Keep file under 8MB for fast load.'
+  },
+  {
+    id: 'hero-parallax',
+    name: 'Parallax Section',
+    desc: 'Scroll-triggered parallax image section. Also includes a 2-column split variant. Use mid-page or as hero.',
+    category: 'hero',
+    file: 'blocks/heroes/hero-parallax.html',
+    tags: ['parallax', 'scroll', 'split-variant'],
+    features: ['Smooth parallax', '2-col variant', 'Adjustable speed', 'Any section'],
+    preview: 'parallax',
+    tip: 'Use data-parallax="0.3" for subtle and "0.6" for dramatic effect.'
+  },
+  {
+    id: 'image-collage',
+    name: 'Image Collage',
+    desc: 'Mosaic/masonry-style image grid. Supports tall, wide, and hero-sized tiles. Great for Instagram-style galleries.',
+    category: 'media',
+    file: 'blocks/media/image-collage.html',
+    tags: ['mosaic', 'gallery', 'instagram'],
+    features: ['Mosaic layout', 'Hover captions', 'Instagram link', 'Responsive'],
+    preview: 'collage',
+    tip: 'Use .re-collage__item--hero for a big feature image in top-left.'
+  },
+  {
+    id: 'before-after',
+    name: 'Before / After Slider',
+    desc: 'Drag-to-reveal comparison slider. Perfect for fitness transformations, renovation reveals, product demos.',
+    category: 'media',
+    file: 'blocks/media/before-after.html',
+    tags: ['comparison', 'drag', 'reveal'],
+    features: ['Drag handle', 'Touch support', 'Any two images', 'Auto-center'],
+    preview: 'before-after',
+    tip: 'Use same-size images for best result. Works well for gym/fitness clients.'
+  },
+  {
+    id: 'stats-counter',
+    name: 'Animated Stats',
+    desc: 'Numbers count up when scrolled into view. Configurable targets, prefixes (R), suffixes (+, %). Has dark variant.',
+    category: 'social',
+    file: 'blocks/social-proof/stats-counter.html',
+    tags: ['counter', 'animated', 'scroll-trigger'],
+    features: ['Count-up animation', 'Scroll triggered', 'Dark variant', 'Custom prefix/suffix'],
+    preview: 'stats',
+    tip: 'Keep numbers honest. Add data-duration="2400" for slower dramatic effect.'
+  },
+  {
+    id: 'testimonials',
+    name: 'Testimonials Carousel',
+    desc: 'Customer reviews in a 3-up carousel. Auto-advances, shows star ratings, reviewer name and location.',
+    category: 'social',
+    file: 'blocks/social-proof/testimonials-carousel.html',
+    tags: ['reviews', 'carousel', '3-up'],
+    features: ['3 per slide', 'Star ratings', 'Auto-advance', 'Arrow controls'],
+    preview: 'testi',
+    tip: 'Group by 3s per slide. Use real suburb names (Sandton, Fourways) to build trust.'
+  },
+  {
+    id: 'product-gallery',
+    name: 'Product Image Zoom',
+    desc: 'Thumbnail strip + hover zoom pane + lightbox. Drop into product.html to replace the basic image area.',
+    category: 'product',
+    file: 'blocks/products/product-gallery.html',
+    tags: ['zoom', 'lightbox', 'thumbnails'],
+    features: ['Hover zoom', 'Lightbox', 'Thumbnail strip', 'Swipe on mobile'],
+    preview: 'gallery',
+    tip: 'Use high-res images (700px+) for the zoom to look sharp.'
+  },
+  {
+    id: 'announcement-bar',
+    name: 'Announcement Bar',
+    desc: 'Sticky scrolling marquee bar above the nav. Rotates multiple messages. Reads delivery rules from STORE_CONFIG. Dismissable.',
+    category: 'utility',
+    file: 'blocks/utility/announcement-bar.html',
+    tags: ['sticky', 'marquee', 'dismissable'],
+    features: ['Scrolling text', 'Multi-message', 'Config-aware', 'Dismissable'],
+    preview: 'bar',
+    tip: 'Place ABOVE the &lt;nav&gt; tag. Not inside it.'
+  },
+  {
+    id: 'scroll-animations',
+    name: 'Scroll Animations',
+    desc: 'Not a block — a system. Add re-animate + re-fade-up (or re-slide-left etc) to any element to animate it on scroll.',
+    category: 'utility',
+    file: 'blocks/re-blocks.css + re-blocks.js',
+    tags: ['fade-up', 'slide-in', 'stagger', 'system'],
+    features: ['fade-up', 'slide-left/right', 'scale-in', 'stagger children'],
+    preview: 'anim',
+    tip: 'Add class="re-animate re-fade-up re-stagger" to a grid wrapper to stagger its children.'
+  },
+];
+
+// ── BLOCK PREVIEWS ───────────────────────────────────────────
+function renderPreview(type) {
+  switch(type) {
+    case 'carousel': return `
+      <img src="https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=600&q=60" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.4;">
+      <div class="mock-hero__bg"></div>
+      <div class="mock-hero__content" style="position:relative;z-index:1;padding:16px;">
+        <div class="mock-hero__label">New Arrivals</div>
+        <div class="mock-hero__title">Premium Cuts,<br><em>Delivered Fresh.</em></div>
+        <div style="display:flex;gap:6px;margin-top:8px;"><span class="mock-btn">Shop Now</span><span class="mock-btn mock-btn--ghost">Our Story</span></div>
+      </div>
+      <div class="mock-arrows"><div class="mock-arrow">←</div><div class="mock-arrow">→</div></div>
+      <div class="mock-dots"><div class="mock-dot active"></div><div class="mock-dot"></div><div class="mock-dot"></div></div>`;
+    case 'video': return `
+      <img src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600&q=60" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.35;">
+      <div class="mock-video__play">▶</div>
+      <div style="position:absolute;bottom:16px;right:16px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:0.55rem;padding:3px 8px;border-radius:4px;backdrop-filter:blur(4px);">🔇 Unmute</div>`;
+    case 'parallax': return `
+      <div class="mock-parallax" style="width:100%;height:100%;background-image:url('https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=600&q=60');">
+        <div class="mock-parallax__content">
+          <div class="mock-parallax__title">Quality you can<br><em>taste the difference.</em></div>
+          <div style="margin-top:8px;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#7c6dfa;color:#fff;border-radius:4px;font-size:0.55rem;font-weight:700;">Learn Our Story</div>
+        </div>
+      </div>`;
+    case 'collage': return `
+      <div class="mock-collage" style="width:100%;height:100%;">
+        <div class="mock-collage-item tall"><img src="https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=300&q=50"></div>
+        <div class="mock-collage-item"><img src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=300&q=50"></div>
+        <div class="mock-collage-item"><img src="https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=300&q=50"></div>
+        <div class="mock-collage-item"><img src="https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=300&q=50"></div>
+        <div class="mock-collage-item"><img src="https://images.unsplash.com/photo-1476224203421-9ac39bcb3327?w=300&q=50"></div>
+      </div>`;
+    case 'before-after': return `
+      <div class="mock-ba" style="width:100%;height:100%;">
+        <div class="mock-ba__before"><img src="https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=600&q=50"></div>
+        <div class="mock-ba__after"><img src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600&q=50"></div>
+        <div class="mock-ba__handle"></div>
+        <div style="position:absolute;top:8px;left:10px;font-size:0.55rem;font-weight:700;color:#fff;background:rgba(0,0,0,0.5);padding:2px 6px;border-radius:3px;">BEFORE</div>
+        <div style="position:absolute;top:8px;right:10px;font-size:0.55rem;font-weight:700;color:#fff;background:rgba(0,0,0,0.5);padding:2px 6px;border-radius:3px;">AFTER</div>
+      </div>`;
+    case 'stats': return `
+      <div class="mock-stats" style="width:100%;height:100%;">
+        <div class="mock-stat"><div class="mock-stat__num">1.2K+</div><div class="mock-stat__lbl">Customers</div></div>
+        <div class="mock-stat-div"></div>
+        <div class="mock-stat"><div class="mock-stat__num">98%</div><div class="mock-stat__lbl">Reviews</div></div>
+        <div class="mock-stat-div"></div>
+        <div class="mock-stat"><div class="mock-stat__num">500+</div><div class="mock-stat__lbl">Products</div></div>
+        <div class="mock-stat-div"></div>
+        <div class="mock-stat"><div class="mock-stat__num">24H</div><div class="mock-stat__lbl">Dispatch</div></div>
+      </div>`;
+    case 'testi': return `
+      <div style="padding:10px;width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;">
+        <div class="mock-testi">
+          <div class="mock-testi__stars">★★★★★</div>
+          <div class="mock-testi__quote">"The quality is incredible. I've ordered every week for 3 months."</div>
+          <div class="mock-testi__author"><div class="mock-testi__av">TM</div><div class="mock-testi__name">Thabo M. — Sandton</div></div>
+        </div>
+        <div style="display:flex;justify-content:center;gap:5px;margin-top:8px;"><div class="mock-dot active"></div><div class="mock-dot"></div></div>
+      </div>`;
+    case 'gallery': return `
+      <div class="mock-gallery" style="padding:10px;width:100%;height:100%;justify-content:center;">
+        <div class="mock-gallery__main"><img src="https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=400&q=50"></div>
+        <div class="mock-gallery__thumbs" style="margin-top:4px;">
+          <div class="mock-gallery__thumb active"><img src="https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=100&q=50"></div>
+          <div class="mock-gallery__thumb"><img src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=100&q=50"></div>
+          <div class="mock-gallery__thumb"><img src="https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=100&q=50"></div>
+        </div>
+      </div>`;
+    case 'bar': return `
+      <div style="width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;gap:8px;padding:12px;">
+        <div class="mock-bar"><div class="mock-bar__msg">🚚 Free delivery on orders over <span>R500</span> — <span style="text-decoration:underline">Shop Now</span></div><div class="mock-bar__x">✕</div></div>
+        <div style="font-size:0.62rem;color:var(--muted);text-align:center;">Scrolling marquee · Dismissable · Multi-message</div>
+      </div>`;
+    case 'anim': return `
+      <div style="padding:16px;width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;gap:8px;">
+        <div style="background:rgba(124,109,250,0.12);border:1px solid rgba(124,109,250,0.2);border-radius:6px;padding:8px 12px;font-size:0.68rem;font-family:var(--mono);color:var(--accent);">class="re-animate re-fade-up"</div>
+        <div style="background:rgba(124,109,250,0.08);border:1px solid rgba(124,109,250,0.15);border-radius:6px;padding:8px 12px;font-size:0.68rem;font-family:var(--mono);color:var(--muted);">class="re-animate re-slide-left"</div>
+        <div style="background:rgba(124,109,250,0.06);border:1px solid rgba(124,109,250,0.12);border-radius:6px;padding:8px 12px;font-size:0.68rem;font-family:var(--mono);color:var(--muted);">class="re-stagger" (children stagger in)</div>
+      </div>`;
+    default: return '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);">Preview</div>';
+  }
+}
+
+function catBadge(cat) {
+  const map = { hero:'hero', media:'media', social:'social', product:'product', utility:'util' };
+  const labels = { hero:'Hero', media:'Media', social:'Social', product:'Product', utility:'Utility' };
+  return `<span class="block-card__badge block-card__badge--${map[cat]||'util'}">${labels[cat]||cat}</span>`;
+}
+
+function renderBlockCard(b) {
+  return `<div class="block-card" data-category="${b.category}" data-id="${b.id}">
+    <div class="block-card__preview">
+      ${catBadge(b.category)}
+      ${renderPreview(b.preview)}
+    </div>
+    <div class="block-card__body">
+      <div class="block-card__name">${b.name}</div>
+      <div class="block-card__desc">${b.desc}</div>
+      <div class="block-card__meta">
+        ${b.tags.map(t=>`<span class="block-card__tag">${t}</span>`).join('')}
+        <span class="block-card__file">${b.file.split('/').pop()}</span>
+      </div>
+      <div style="background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.15);border-radius:6px;padding:7px 10px;font-size:0.68rem;color:rgba(251,191,36,0.7);margin-bottom:12px;">
+        💡 ${b.tip}
+      </div>
+      <div class="block-card__actions">
+        <button class="block-card__btn block-card__btn--copy" onclick="copyBlock('${b.id}', this)">📋 Copy Code</button>
+        <button class="block-card__btn" onclick="showBlockFile('${b.id}')">👁 View File</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderAllBlocks(list) {
+  const grid = document.getElementById('blocks-grid');
+  if (!grid) return;
+  grid.innerHTML = list.length
+    ? list.map(renderBlockCard).join('')
+    : '<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--muted);">No blocks match that search.</div>';
+}
+
+// ── FILTER / SEARCH ─────────────────────────────────────────
+let currentFilter = 'all';
+function filterBlocks(cat, tabEl) {
+  currentFilter = cat;
+  showView('all-blocks');
+  const filtered = cat === 'all' ? BLOCKS : BLOCKS.filter(b => b.category === cat);
+  renderAllBlocks(filtered);
+  document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
+  if (tabEl) tabEl.classList.add('active');
+}
+
+function searchBlocks(val) {
+  if (!val.trim()) { filterBlocks(currentFilter); return; }
+  const q = val.toLowerCase();
+  const results = BLOCKS.filter(b =>
+    b.name.toLowerCase().includes(q) ||
+    b.desc.toLowerCase().includes(q) ||
+    b.tags.some(t => t.includes(q))
+  );
+  showView('all-blocks');
+  renderAllBlocks(results);
+}
+
+// ── VIEWS ────────────────────────────────────────────────────
+const VIEW_TITLES = {
+  'overview':   'How It All Works — Start here',
+  'anatomy':    'Page Anatomy — Where blocks go',
+  'workflow':   'Your Workflow — New client to live store',
+  'all-blocks': 'Block Library — All 10 blocks',
+  'ai-prompts': 'AI Prompt Templates — Custom build helper',
+};
+
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  const el = document.getElementById('view-' + id);
+  if (el) el.classList.add('active');
+  const titleEl = document.getElementById('topbar-title');
+  if (titleEl) titleEl.innerHTML = VIEW_TITLES[id] || id;
+  document.querySelectorAll('.sidebar__item').forEach(i => i.classList.remove('active'));
+}
+
+// ── COPY BLOCK CODE ─────────────────────────────────────────
+const BLOCK_CODE = {
+  'hero-carousel': `<!-- ═══ BLOCK START: hero-carousel ═══ -->
+<!-- ⚠️  REQUIRES: blocks/re-blocks.js + re-blocks.css -->
+<section class="re-hero-carousel" data-carousel data-autoplay="true" data-interval="5000">
+  <div class="re-hero-carousel__track" data-carousel-track>
+    <div class="re-carousel__slide active" style="background-image:url('YOUR_IMAGE_1.jpg')">
+      <div class="re-carousel__overlay"></div>
+      <div class="re-carousel__content re-animate re-fade-up">
+        <span class="re-carousel__label">Your Label</span>
+        <h2 class="re-carousel__title">Your Headline<br><em>Goes Here.</em></h2>
+        <p class="re-carousel__sub">Your subtext here.</p>
+        <div class="re-carousel__cta">
+          <a href="products.html" class="re-carousel__btn re-carousel__btn--primary">Shop Now</a>
+        </div>
+      </div>
+    </div>
+    <!-- Add more slides here — copy the div above -->
+  </div>
+  <button class="re-carousel__arrow re-carousel__arrow--prev" data-carousel-prev>&#8592;</button>
+  <button class="re-carousel__arrow re-carousel__arrow--next" data-carousel-next>&#8594;</button>
+  <div class="re-carousel__dots" data-carousel-dots></div>
+</section>
+<!-- ═══ BLOCK END: hero-carousel ═══ -->
+<!-- Full code with styles in: blocks/heroes/hero-carousel.html -->`,
+
+  'hero-video': `<!-- ═══ BLOCK START: hero-video ═══ -->
+<!-- ⚠️  REQUIRES: blocks/re-blocks.js + re-blocks.css -->
+<section class="re-video-hero" id="video-hero">
+  <div class="re-video-hero__media">
+    <video class="re-video-hero__video" autoplay muted loop playsinline
+      poster="YOUR_FALLBACK_IMAGE.jpg">
+      <source src="YOUR_VIDEO.mp4" type="video/mp4">
+    </video>
+    <div class="re-video-hero__overlay"></div>
+  </div>
+  <div class="re-video-hero__content">
+    <div class="re-video-hero__inner re-animate re-fade-up">
+      <span class="re-video-hero__eyebrow">Est. South Africa</span>
+      <h1 class="re-video-hero__title">Your Headline<br><em>Here.</em></h1>
+      <p class="re-video-hero__sub">Your subtext here.</p>
+      <div class="re-video-hero__cta">
+        <a href="products.html" class="re-vh-btn re-vh-btn--primary">Shop Now</a>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ═══ BLOCK END: hero-video ═══ -->
+<!-- Full code with styles in: blocks/heroes/hero-video.html -->`,
+
+  'hero-parallax': `<!-- ═══ BLOCK START: parallax-section ═══ -->
+<!-- ⚠️  REQUIRES: blocks/re-blocks.js + re-blocks.css -->
+<section class="re-parallax-section">
+  <div class="re-parallax-bg" data-parallax="0.45"
+    style="background-image:url('YOUR_IMAGE.jpg')"></div>
+  <div class="re-parallax-overlay"></div>
+  <div class="re-parallax-content re-animate re-fade-up">
+    <span class="re-parallax-label">Our Promise</span>
+    <h2 class="re-parallax-title">Quality you can<br><em>taste the difference.</em></h2>
+    <p class="re-parallax-sub">Your text here.</p>
+    <a href="about.html" class="re-parallax-btn">Learn Our Story</a>
+  </div>
+</section>
+<!-- ═══ BLOCK END: parallax-section ═══ -->
+<!-- Full code in: blocks/heroes/hero-parallax.html -->`,
+
+  'image-collage': `<!-- ═══ BLOCK START: image-collage ═══ -->
+<!-- ⚠️  REQUIRES: blocks/re-blocks.js + re-blocks.css -->
+<section class="re-section re-collage-section re-animate re-fade-up">
+  <div class="re-block-container">
+    <div class="re-block-header" style="margin-bottom:36px;">
+      <span class="re-block-label">Behind the Scenes</span>
+      <h2 class="re-block-title">A glimpse into <em>our world</em></h2>
+    </div>
+    <div class="re-collage-grid re-stagger">
+      <div class="re-collage__item re-collage__item--hero re-animate re-scale-in">
+        <img src="YOUR_HERO_IMAGE.jpg" alt="Featured" loading="lazy">
+      </div>
+      <div class="re-collage__item re-animate re-fade-up">
+        <img src="YOUR_IMAGE_2.jpg" alt="" loading="lazy">
+      </div>
+      <div class="re-collage__item re-collage__item--tall re-animate re-fade-up">
+        <img src="YOUR_IMAGE_3.jpg" alt="" loading="lazy">
+      </div>
+      <div class="re-collage__item re-animate re-fade-up">
+        <img src="YOUR_IMAGE_4.jpg" alt="" loading="lazy">
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ═══ BLOCK END: image-collage ═══ -->
+<!-- Full code in: blocks/media/image-collage.html -->`,
+
+  'before-after': `<!-- ═══ BLOCK START: before-after ═══ -->
+<!-- ⚠️  REQUIRES: blocks/re-blocks.js + re-blocks.css -->
+<div class="re-ba-wrap">
+  <div class="re-ba" data-before-after>
+    <div class="re-ba__before" data-ba-overlay>
+      <img src="YOUR_BEFORE_IMAGE.jpg" alt="Before">
+      <span class="re-ba__label re-ba__label--before">Before</span>
+    </div>
+    <div class="re-ba__after">
+      <img src="YOUR_AFTER_IMAGE.jpg" alt="After">
+      <span class="re-ba__label re-ba__label--after">After</span>
+    </div>
+    <div class="re-ba__handle" data-ba-handle>
+      <div class="re-ba__handle-bar"></div>
+      <div class="re-ba__handle-btn">&#8596;</div>
+    </div>
+  </div>
+</div>
+<!-- ═══ BLOCK END: before-after ═══ -->
+<!-- Full code in: blocks/media/before-after.html -->`,
+
+  'stats-counter': `<!-- ═══ BLOCK START: stats-counter ═══ -->
+<!-- ⚠️  REQUIRES: blocks/re-blocks.js + re-blocks.css -->
+<section class="re-stats re-animate re-fade-up">
+  <div class="re-stats__inner re-stagger">
+    <div class="re-stat-item">
+      <div class="re-stat-item__num" data-target="1200" data-suffix="+" data-duration="1800">0</div>
+      <div class="re-stat-item__label">Happy Customers</div>
+    </div>
+    <div class="re-stat-divider"></div>
+    <div class="re-stat-item">
+      <div class="re-stat-item__num" data-target="98" data-suffix="%" data-duration="1600">0</div>
+      <div class="re-stat-item__label">5-Star Reviews</div>
+    </div>
+    <div class="re-stat-divider"></div>
+    <div class="re-stat-item">
+      <div class="re-stat-item__num" data-target="500" data-suffix="+" data-duration="1500">0</div>
+      <div class="re-stat-item__label">Products in Stock</div>
+    </div>
+    <div class="re-stat-divider"></div>
+    <div class="re-stat-item">
+      <div class="re-stat-item__num" data-target="24" data-suffix="H" data-duration="1200">0</div>
+      <div class="re-stat-item__label">Dispatch Time</div>
+    </div>
+  </div>
+</section>
+<!-- ═══ BLOCK END: stats-counter ═══ -->
+<!-- Full code in: blocks/social-proof/stats-counter.html -->`,
+
+  'testimonials': `<!-- ═══ BLOCK START: testimonials-carousel ═══ -->
+<!-- ⚠️  REQUIRES: blocks/re-blocks.js + re-blocks.css -->
+<section class="re-testi-section re-animate re-fade-up">
+  <div class="re-block-container">
+    <div class="re-testi-header">
+      <div>
+        <span class="re-block-label">Customer Love</span>
+        <h2 class="re-block-title">What our <em>customers say</em></h2>
+      </div>
+    </div>
+    <div class="re-testi-carousel" data-carousel data-autoplay="true" data-interval="5500">
+      <div class="re-testi__track" data-carousel-track>
+        <div class="re-testi__slide active">
+          <div class="re-testi-grid-inner">
+            <div class="re-testi__item">
+              <div class="re-testi__stars">★★★★★</div>
+              <blockquote class="re-testi__quote">"Your customer quote here."</blockquote>
+              <div class="re-testi__author">
+                <div class="re-testi__avatar">TM</div>
+                <div><strong>Customer Name</strong><span>City, Province</span></div>
+              </div>
+            </div>
+            <!-- Add 2 more .re-testi__item divs for a 3-up layout -->
+          </div>
+        </div>
+      </div>
+      <div class="re-testi__dots" data-carousel-dots></div>
+    </div>
+  </div>
+</section>
+<!-- ═══ BLOCK END: testimonials-carousel ═══ -->
+<!-- Full code in: blocks/social-proof/testimonials-carousel.html -->`,
+
+  'product-gallery': `<!-- ═══ BLOCK START: product-gallery ═══ -->
+<!-- ⚠️  REQUIRES: blocks/re-blocks.js + re-blocks.css -->
+<!-- DROP INTO: product.html to replace the basic image area -->
+<div class="re-gallery" data-gallery>
+  <div class="re-gallery__main-wrap">
+    <div class="re-gallery__main">
+      <img src="" alt="Product" data-gallery-main id="gallery-main-img" onclick="openLightbox(this.src)">
+    </div>
+    <div class="re-gallery__zoom-pane" data-gallery-zoom></div>
+  </div>
+  <div class="re-gallery__thumbs" id="gallery-thumbs">
+    <!-- Thumbnails injected by product page JS from API response -->
+  </div>
+</div>
+<div class="re-lightbox" id="re-lightbox" onclick="closeLightbox()">
+  <button class="re-lightbox__close" onclick="closeLightbox()">✕</button>
+  <img src="" alt="" id="re-lightbox-img" onclick="event.stopPropagation()">
+</div>
+<!-- ═══ BLOCK END: product-gallery ═══ -->
+<!-- Full code in: blocks/products/product-gallery.html -->`,
+
+  'announcement-bar': `<!-- ═══ BLOCK START: announcement-bar ═══ -->
+<!-- ⚠️  PLACEMENT: Paste ABOVE your <nav> tag, not inside it -->
+<div class="re-announcement-bar" id="re-announce-bar">
+  <div class="re-announce-track" id="re-announce-track"></div>
+  <button class="re-announce-close" onclick="dismissBar()">✕</button>
+</div>
+<script>
+(function () {
+  var MESSAGES = [
+    '🚚 Free delivery on orders over <strong>R500</strong> — <a href="products.html">Shop Now</a>',
+    '⭐ Weekly specials are live — <a href="products.html?filter=specials">See Deals</a>',
+    '🕐 Order before 12:00 for <strong>same-day dispatch</strong>',
+  ];
+  var track = document.getElementById('re-announce-track');
+  var all = MESSAGES.concat(MESSAGES);
+  track.innerHTML = all.map(function(m){return '<span class="re-announce-msg">'+m+'</span>';}).join('');
+  window.dismissBar = function() { document.getElementById('re-announce-bar').style.display='none'; };
+})();
+<\/script>
+<!-- ═══ BLOCK END: announcement-bar ═══ -->
+<!-- Full code in: blocks/utility/announcement-bar.html -->`,
+
+  'scroll-animations': `<!-- ═══ SCROLL ANIMATIONS SYSTEM ═══ -->
+<!-- ⚠️  REQUIRES: blocks/re-blocks.js (auto-initialises) -->
+<!-- Add these classes to ANY element you want animated on scroll: -->
+
+<!-- Fade up (most common) -->
+<section class="re-animate re-fade-up"> ... </section>
+
+<!-- Slide in from right -->
+<div class="re-animate re-slide-left"> ... </div>
+
+<!-- Scale in -->
+<div class="re-animate re-scale-in"> ... </div>
+
+<!-- Stagger children (each child animates 0.1s after previous) -->
+<div class="re-stagger">
+  <div class="re-animate re-fade-up">Card 1</div>
+  <div class="re-animate re-fade-up">Card 2</div>
+  <div class="re-animate re-fade-up">Card 3</div>
+</div>
+
+<!-- ═══ END SCROLL ANIMATIONS ═══ -->`,
+};
+
+function copyBlock(id, btn) {
+  const code = BLOCK_CODE[id] || '<!-- Code not found — open the file directly -->';
+  navigator.clipboard.writeText(code).then(() => {
+    btn.textContent = '✓ Copied!';
+    btn.classList.add('copied');
+    showToast('Block code copied! Paste into your HTML.');
+    setTimeout(() => { btn.textContent = '📋 Copy Code'; btn.classList.remove('copied'); }, 2200);
+  });
+}
+
+function showBlockFile(id) {
+  const b = BLOCKS.find(b => b.id === id);
+  if (b) showToast('File: ' + b.file);
+}
+
+function copyPrompt(card) {
+  const text = card.querySelector('.prompt-card__text').textContent;
+  navigator.clipboard.writeText(text).then(() => showToast('Prompt copied!'));
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = '✓ ' + msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+// ── INIT ─────────────────────────────────────────────────────
+renderAllBlocks(BLOCKS);
+</script>
+</body>
+</html>

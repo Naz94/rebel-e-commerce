@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkout | Store</title>
+  <link rel="stylesheet" href="theme.css">
+  <style>
+    .checkout-layout {
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      gap: 40px;
+      align-items: start;
+    }
+    .checkout-form-card {
+      background: var(--re-surface);
+      border: 1px solid var(--re-border);
+      border-radius: var(--re-radius-lg);
+      padding: 40px;
+      box-shadow: var(--re-shadow);
+    }
+    .checkout-section-title {
+      font-family: var(--re-font-display);
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid var(--re-border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .checkout-section-title .step-num {
+      width: 28px; height: 28px;
+      background: var(--re-accent);
+      color: var(--re-text-inv);
+      border-radius: 50%;
+      font-size: 0.8rem;
+      font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .checkout-sticky {
+      position: sticky;
+      top: calc(var(--re-nav-height) + 20px);
+    }
+    .order-summary-card {
+      background: var(--re-bg-alt);
+      border: 1px solid var(--re-border);
+      border-radius: var(--re-radius-lg);
+      padding: 32px;
+    }
+    .order-summary-title {
+      font-family: var(--re-font-display);
+      font-size: 1rem;
+      font-weight: 800;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .order-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--re-border);
+    }
+    .order-item:last-of-type { border-bottom: none; }
+    .order-item img {
+      width: 56px; height: 56px;
+      object-fit: cover;
+      border-radius: var(--re-radius);
+      background: var(--re-bg);
+      flex-shrink: 0;
+    }
+    .order-item__name { font-weight: 600; font-size: 0.875rem; flex: 1; }
+    .order-item__qty { color: var(--re-text-muted); font-size: 0.8rem; }
+    .order-item__price { font-weight: 800; font-size: 0.9rem; color: var(--re-accent); white-space: nowrap; }
+    .order-totals { margin-top: 16px; }
+    .order-total-row {
+      display: flex; justify-content: space-between;
+      padding: 10px 0;
+      font-size: 0.9rem;
+      border-bottom: 1px solid var(--re-border);
+    }
+    .order-total-row--grand {
+      font-size: 1.2rem;
+      font-weight: 800;
+      border-bottom: none;
+      padding-top: 16px;
+    }
+    .order-total-row--grand span:last-child { color: var(--re-accent); }
+    /* Step indicator */
+    .checkout-steps {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 40px;
+    }
+    .checkout-step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--re-text-muted);
+    }
+    .checkout-step.active { color: var(--re-text); }
+    .checkout-step.done { color: var(--re-accent); }
+    .checkout-step__dot {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      border: 2px solid var(--re-border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.65rem;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+    .checkout-step.active .checkout-step__dot { border-color: var(--re-accent); background: var(--re-accent); color: var(--re-text-inv); }
+    .checkout-step.done .checkout-step__dot { background: var(--re-accent); border-color: var(--re-accent); color: var(--re-text-inv); }
+    .checkout-step__line { flex: 1; height: 2px; background: var(--re-border); margin: 0 8px; }
+    .checkout-step__line.done { background: var(--re-accent); }
+    /* Success screen */
+    #successScreen {
+      display: none;
+      text-align: center;
+      padding: 80px 40px;
+    }
+    #successScreen.show { display: block; }
+    .success-icon { font-size: 5rem; margin-bottom: 24px; }
+    .success-title { font-family: var(--re-font-display); font-size: 2rem; font-weight: 800; margin-bottom: 12px; }
+    .success-sub { color: var(--re-text-muted); margin-bottom: 32px; font-size: 1rem; max-width: 460px; margin-left: auto; margin-right: auto; }
+    @media (max-width: 900px) {
+      .checkout-layout { grid-template-columns: 1fr; }
+      .checkout-sticky { position: static; }
+    }
+    @media (max-width: 480px) {
+      .checkout-form-card { padding: 24px 20px; }
+      .order-summary-card { padding: 24px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav data-nav>
+    <div class="re-container">
+      <div class="re-nav__inner">
+        <a href="index.html" class="re-nav__logo">
+          <span data-store-logo-text></span>
+          <img data-store-logo style="display:none;height:36px;width:auto;">
+        </a>
+        <div class="re-nav__actions">
+          <div class="re-nav__icon" data-cart-icon title="Cart">
+            🛒<span data-cart-count style="display:none">0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="re-section">
+    <div class="re-container">
+
+      <!-- STEPS -->
+      <div class="checkout-steps">
+        <div class="checkout-step done" id="step1Ind">
+          <div class="checkout-step__dot">✓</div>
+          <span>Cart</span>
+        </div>
+        <div class="checkout-step__line done"></div>
+        <div class="checkout-step active" id="step2Ind">
+          <div class="checkout-step__dot">2</div>
+          <span>Details</span>
+        </div>
+        <div class="checkout-step__line" id="line23"></div>
+        <div class="checkout-step" id="step3Ind">
+          <div class="checkout-step__dot">3</div>
+          <span>Payment</span>
+        </div>
+        <div class="checkout-step__line" id="line34"></div>
+        <div class="checkout-step" id="step4Ind">
+          <div class="checkout-step__dot">4</div>
+          <span>Confirm</span>
+        </div>
+      </div>
+
+      <!-- SUCCESS SCREEN (hidden until order placed) -->
+      <div id="successScreen">
+        <div class="success-icon">✅</div>
+        <h1 class="success-title">Order Placed!</h1>
+        <p class="success-sub">
+          Thank you! Your order <strong id="successOrderNum"></strong> has been received.
+          Check your email for confirmation.
+        </p>
+        <div id="eftDetailsContainer"></div>
+        <div style="display:flex; gap:16px; justify-content:center; flex-wrap:wrap; margin-top:32px;">
+          <a href="order-status.html" class="re-btn re-btn--primary re-btn--lg">Track My Order</a>
+          <a href="shop.html" class="re-btn re-btn--ghost re-btn--lg">Continue Shopping</a>
+        </div>
+      </div>
+
+      <!-- CHECKOUT FORM -->
+      <div id="checkoutLayout" class="checkout-layout">
+        <!-- LEFT: FORM -->
+        <div>
+          <form id="checkoutForm" onsubmit="return false;">
+
+            <!-- SHIPPING -->
+            <div class="checkout-form-card" style="margin-bottom:24px;">
+              <div class="checkout-section-title">
+                <span class="step-num">1</span>
+                Shipping Information
+              </div>
+              <div class="re-form-grid">
+                <div class="re-form-group">
+                  <label>First Name *</label>
+                  <input type="text" id="firstName" required placeholder="Sipho">
+                </div>
+                <div class="re-form-group">
+                  <label>Last Name *</label>
+                  <input type="text" id="lastName" required placeholder="Dlamini">
+                </div>
+              </div>
+              <div class="re-form-grid">
+                <div class="re-form-group">
+                  <label>Email Address *</label>
+                  <input type="email" id="email" required placeholder="sipho@email.com">
+                </div>
+                <div class="re-form-group">
+                  <label>Phone Number *</label>
+                  <input type="tel" id="phone" required placeholder="+27 82 000 0000">
+                </div>
+              </div>
+              <div class="re-form-group">
+                <label>Street Address *</label>
+                <input type="text" id="address" required placeholder="123 Main Street, Apt 4B">
+              </div>
+              <div class="re-form-grid">
+                <div class="re-form-group">
+                  <label>City *</label>
+                  <input type="text" id="city" required placeholder="Johannesburg">
+                </div>
+                <div class="re-form-group">
+                  <label>Province *</label>
+                  <select id="province" required>
+                    <option value="">Select province...</option>
+                    <option>Gauteng</option>
+                    <option>Western Cape</option>
+                    <option>KwaZulu-Natal</option>
+                    <option>Eastern Cape</option>
+                    <option>Limpopo</option>
+                    <option>Mpumalanga</option>
+                    <option>North West</option>
+                    <option>Free State</option>
+                    <option>Northern Cape</option>
+                  </select>
+                </div>
+              </div>
+              <div class="re-form-group" style="max-width:220px;">
+                <label>Postal Code *</label>
+                <input type="text" id="postalCode" required placeholder="2001" maxlength="4">
+              </div>
+              <div class="re-form-group">
+                <label>Order Notes (optional)</label>
+                <textarea id="notes" rows="3" placeholder="Special instructions, gate codes, etc."></textarea>
+              </div>
+            </div>
+
+            <!-- PAYMENT METHOD -->
+            <div class="checkout-form-card">
+              <div class="checkout-section-title">
+                <span class="step-num">2</span>
+                Payment Method
+              </div>
+              <div class="re-payment-methods">
+                <div class="re-payment-method selected" id="eftMethod" onclick="selectPayment('eft')">
+                  <div class="re-payment-method__icon">🏦</div>
+                  <div class="re-payment-method__name">EFT / Bank Transfer</div>
+                  <div class="re-payment-method__desc">Pay via internet banking</div>
+                </div>
+                <div class="re-payment-method" id="cardMethod" onclick="selectPayment('card')">
+                  <div class="re-payment-method__icon">💳</div>
+                  <div class="re-payment-method__name">Card Payment</div>
+                  <div class="re-payment-method__desc">Visa, Mastercard via Yoco</div>
+                </div>
+              </div>
+
+              <!-- EFT info -->
+              <div id="eftInfo" style="background:var(--re-bg-alt); border-radius:var(--re-radius); padding:16px; font-size:0.875rem; color:var(--re-text-muted); line-height:1.7;">
+                🏦 After placing your order you'll receive our banking details. 
+                Orders are processed once payment is confirmed — usually within 1 business day.
+              </div>
+
+              <!-- Card info (hidden by default) -->
+              <div id="cardInfo" style="display:none; background:var(--re-bg-alt); border-radius:var(--re-radius); padding:16px; font-size:0.875rem; color:var(--re-text-muted); line-height:1.7;">
+                💳 You'll be redirected to our secure Yoco payment page after placing your order.
+              </div>
+
+              <!-- Terms -->
+              <div style="margin-top:24px; display:flex; align-items:flex-start; gap:12px;">
+                <input type="checkbox" id="terms" required style="width:auto; margin-top:3px; flex-shrink:0;">
+                <label for="terms" style="font-size:0.85rem; color:var(--re-text-muted); cursor:pointer;">
+                  I agree to the <a href="#terms" style="color:var(--re-accent);">Terms & Conditions</a> and 
+                  <a href="#privacy" style="color:var(--re-accent);">Privacy Policy</a>.
+                </label>
+              </div>
+
+              <button 
+                type="button" 
+                id="placeOrderBtn"
+                class="re-btn re-btn--primary re-btn--full re-btn--lg"
+                style="margin-top:24px;"
+                onclick="placeOrder()">
+                Place Order
+              </button>
+              <p style="text-align:center; font-size:0.78rem; color:var(--re-text-muted); margin-top:12px;">
+                🔒 Your information is protected and secure
+              </p>
+            </div>
+          </form>
+        </div>
+
+        <!-- RIGHT: ORDER SUMMARY -->
+        <div class="checkout-sticky">
+          <div class="order-summary-card">
+            <div class="order-summary-title">Order Summary</div>
+            <div id="orderItems">
+              <!-- Loaded by JS -->
+            </div>
+            <div class="order-totals" id="orderTotals">
+              <!-- Loaded by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../../shared/rebel-engine.js"></script>
+  <script src="config.js"></script>
+  <script>
+    let selectedPayment = 'eft';
+
+    function selectPayment(method) {
+      selectedPayment = method;
+      document.getElementById('eftMethod').classList.toggle('selected', method === 'eft');
+      document.getElementById('cardMethod').classList.toggle('selected', method === 'card');
+      document.getElementById('eftInfo').style.display = method === 'eft' ? 'block' : 'none';
+      document.getElementById('cardInfo').style.display = method === 'card' ? 'block' : 'none';
+    }
+
+    function renderOrderSummary() {
+      const cart = Cart.get();
+      const subtotal = Cart.subtotal();
+
+      // Items
+      document.getElementById('orderItems').innerHTML = cart.map(item => `
+        <div class="order-item">
+          <img src="${item.image || 'https://placehold.co/56x56'}" alt="${item.name}">
+          <div style="flex:1;">
+            <div class="order-item__name">${item.name}</div>
+            <div class="order-item__qty">Qty: ${item.qty}</div>
+          </div>
+          <div class="order-item__price">${Currency.format(item.price * item.qty)}</div>
+        </div>
+      `).join('');
+
+      // Totals
+      document.getElementById('orderTotals').innerHTML = `
+        <div class="order-total-row"><span>Subtotal</span><span>${Currency.format(subtotal)}</span></div>
+        <div class="order-total-row"><span>Shipping</span><span style="color:var(--re-accent-2)">Calculated on delivery</span></div>
+        <div class="order-total-row order-total-row--grand"><span>Total</span><span>${Currency.format(subtotal)}</span></div>
+      `;
+    }
+
+    async function placeOrder() {
+      const form = document.getElementById('checkoutForm');
+      const terms = document.getElementById('terms');
+
+      // Basic validation
+      if (!terms.checked) {
+        alert('Please agree to the Terms & Conditions to continue.');
+        return;
+      }
+
+      const requiredFields = ['firstName','lastName','email','phone','address','city','province','postalCode'];
+      for (const id of requiredFields) {
+        const el = document.getElementById(id);
+        if (!el.value.trim()) {
+          el.focus();
+          el.style.borderColor = '#ef4444';
+          setTimeout(() => el.style.borderColor = '', 2000);
+          return;
+        }
+      }
+
+      if (Cart.count() === 0) {
+        alert('Your cart is empty!');
+        window.location.href = 'shop.html';
+        return;
+      }
+
+      const btn = document.getElementById('placeOrderBtn');
+      btn.disabled = true;
+      btn.textContent = 'Placing order...';
+
+      try {
+        const orderData = await Orders.submit({
+          customer: {
+            firstName: document.getElementById('firstName').value.trim(),
+            lastName:  document.getElementById('lastName').value.trim(),
+            email:     document.getElementById('email').value.trim(),
+            phone:     document.getElementById('phone').value.trim(),
+          },
+          shipping: {
+            address:    document.getElementById('address').value.trim(),
+            city:       document.getElementById('city').value.trim(),
+            province:   document.getElementById('province').value,
+            postalCode: document.getElementById('postalCode').value.trim(),
+          },
+          notes:         document.getElementById('notes').value.trim(),
+          paymentMethod: selectedPayment,
+        });
+
+        // Show success
+        document.getElementById('checkoutLayout').style.display = 'none';
+        const success = document.getElementById('successScreen');
+        document.getElementById('successOrderNum').textContent = `#${orderData.orderNumber}`;
+        success.classList.add('show');
+
+        // EFT details
+        if (selectedPayment === 'eft' && orderData.eftDetails) {
+          Orders.renderEFTDetails('#eftDetailsContainer', orderData);
+        }
+
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      } catch (err) {
+        console.error('Order error:', err);
+        alert(`Order failed: ${err.message || 'Please try again or contact us on WhatsApp.'}`);
+        btn.disabled = false;
+        btn.textContent = 'Place Order';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      await RebelEngine.init(STORE_CONFIG);
+
+      if (Cart.count() === 0) {
+        window.location.href = 'cart.html';
+        return;
+      }
+
+      renderOrderSummary();
+    });
+  </script>
+</body>
+</html>

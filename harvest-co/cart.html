@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cart | Store</title>
+  <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+
+<nav class="hc-nav" data-nav>
+  <div class="hc-container">
+    <div class="hc-nav__inner">
+      <a href="index.html" class="hc-nav__logo" id="nav-logo"><strong id="nav-logo-text">Store</strong></a>
+      <div class="hc-nav__links" id="nav-links"></div>
+      <div class="hc-nav__actions">
+        <div class="hc-nav__icon" data-cart-icon>🛒<span class="badge" data-cart-count style="display:none">0</span></div>
+      </div>
+      <button class="hc-nav__hamburger" data-hamburger><span></span><span></span><span></span></button>
+    </div>
+  </div>
+</nav>
+<div class="hc-mobile-nav" data-mobile-nav id="mobile-nav"></div>
+
+<div class="hc-page">
+  <div class="hc-section">
+    <div class="hc-container">
+      <div class="hc-breadcrumb">
+        <a href="index.html">Home</a><span>/</span>
+        <a href="products.html">Shop</a><span>/</span>
+        <span>Cart</span>
+      </div>
+      <h1 class="hc-heading" style="font-size:clamp(1.6rem,3vw,2.4rem);margin-bottom:32px;">Your Cart</h1>
+
+      <!-- Empty state -->
+      <div id="empty-cart" style="display:none;" class="hc-empty">
+        <div style="font-size:3rem;margin-bottom:16px;">🛒</div>
+        <h3>Your cart is empty</h3>
+        <p style="margin-bottom:24px;">Looks like you haven't added anything yet.</p>
+        <a href="products.html" class="hc-btn hc-btn--primary">Start Shopping</a>
+      </div>
+
+      <!-- Cart content -->
+      <div id="cart-content" class="hc-cart-layout">
+        <!-- Items -->
+        <div>
+          <div id="cart-items"></div>
+        </div>
+        <!-- Summary -->
+        <div>
+          <div class="hc-order-summary">
+            <h3>Order Summary</h3>
+            <div class="hc-summary-row"><span>Subtotal</span><strong id="subtotal">R 0.00</strong></div>
+            <div class="hc-summary-row"><span>Delivery</span><strong id="delivery-fee">Calculated at checkout</strong></div>
+            <div id="free-delivery-note" class="hc-delivery-note" style="display:none;">✓ You qualify for free delivery!</div>
+            <div class="hc-divider"></div>
+            <div class="hc-summary-total">
+              <span>Total</span>
+              <span id="total">R 0.00</span>
+            </div>
+            <a href="checkout.html" class="hc-btn hc-btn--primary hc-btn--wide" style="margin-top:20px;">Proceed to Checkout</a>
+            <a href="products.html" class="hc-btn hc-btn--outline hc-btn--wide" style="margin-top:10px;">Continue Shopping</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="hc-footer">
+  <div class="hc-container">
+    <div class="hc-footer__bottom"><span id="footer-copy">© 2025 Store</span><span>Powered by Rebel Engine 🇿🇦</span></div>
+  </div>
+</footer>
+
+<script src="../shared/rebel-engine.js"></script>
+<script src="STORE_CONFIG.js"></script>
+<script>
+(async function () {
+  const C = window.STORE_CONFIG || {};
+  const root = document.documentElement;
+  if (C.colors) Object.entries({ primary:'--hc-primary', accent:'--hc-accent', accentAlt:'--hc-accent-alt', bg:'--hc-bg', surface:'--hc-surface', text:'--hc-text' }).forEach(([k,v]) => { if(C.colors[k]) root.style.setProperty(v,C.colors[k]); });
+
+  const name = C.storeName || 'Store';
+  document.title = `Cart | ${name}`;
+  document.getElementById('footer-copy').textContent = `© ${new Date().getFullYear()} ${name}`;
+  if (C.logoImage) document.getElementById('nav-logo').innerHTML = `<img src="${C.logoImage}" alt="${name}">`;
+  else document.getElementById('nav-logo-text').textContent = C.logoText || name;
+  const linksHTML = (C.navLinks||[]).map(l=>`<a href="${l.href}" data-nav-link>${l.label}</a>`).join('');
+  document.getElementById('nav-links').innerHTML = linksHTML;
+  document.getElementById('mobile-nav').innerHTML = linksHTML;
+
+  window.addEventListener('scroll', ()=>document.querySelector('.hc-nav').classList.toggle('scrolled',scrollY>60), {passive:true});
+  document.querySelector('[data-hamburger]').addEventListener('click', function(){ this.classList.toggle('active'); document.getElementById('mobile-nav').classList.toggle('open'); });
+  document.querySelectorAll('[data-cart-icon]').forEach(el=>el.addEventListener('click',()=>window.location='cart.html'));
+
+  await RebelEngine.init({ clientId: C.clientId, apiBase: C.apiBase });
+  const cur = C.currency || 'R';
+  const freeOver = C.delivery?.freeOver || 500;
+  const flatRate = C.delivery?.flatRate || 80;
+
+  renderCart();
+
+  function renderCart() {
+    const items = Cart.get();
+    Cart.updateBadge();
+
+    if (!items.length) {
+      document.getElementById('empty-cart').style.display = '';
+      document.getElementById('cart-content').style.display = 'none';
+      return;
+    }
+
+    document.getElementById('empty-cart').style.display = 'none';
+    document.getElementById('cart-content').style.display = 'grid';
+
+    const subtotal = Cart.subtotal();
+    const delivery = subtotal >= freeOver ? 0 : flatRate;
+    const total = subtotal + delivery;
+
+    document.getElementById('cart-items').innerHTML = items.map(item => `
+      <div class="hc-cart-item" id="item-${item.id}">
+        <div class="hc-cart-item__img">
+          <img src="${item.image || `https://placehold.co/80x80/f0e9df/1c1208?text=${encodeURIComponent(item.name)}`}" alt="${item.name}">
+        </div>
+        <div>
+          <div class="hc-cart-item__name">${item.name}</div>
+          <div class="hc-cart-item__meta">${item.category || ''}</div>
+          <div class="hc-qty">
+            <button onclick="updateQty('${item.id}', ${item.qty - 1})">−</button>
+            <span>${item.qty}</span>
+            <button onclick="updateQty('${item.id}', ${item.qty + 1})">+</button>
+            <button onclick="removeItem('${item.id}')" style="margin-left:8px;color:var(--hc-text-muted);font-size:0.8rem;">Remove</button>
+          </div>
+        </div>
+        <div class="hc-cart-item__price">${cur} ${(item.price * item.qty).toLocaleString('en-ZA',{minimumFractionDigits:2})}</div>
+      </div>`).join('');
+
+    const fmt = n => `${cur} ${Number(n).toLocaleString('en-ZA',{minimumFractionDigits:2})}`;
+    document.getElementById('subtotal').textContent = fmt(subtotal);
+    document.getElementById('delivery-fee').textContent = delivery === 0 ? 'FREE' : fmt(delivery);
+    document.getElementById('total').textContent = fmt(total);
+    document.getElementById('free-delivery-note').style.display = delivery === 0 ? '' : 'none';
+    if (delivery > 0 && freeOver > 0) {
+      const diff = freeOver - subtotal;
+      document.getElementById('free-delivery-note').style.display = '';
+      document.getElementById('free-delivery-note').textContent = `Add ${fmt(diff)} more for free delivery`;
+      document.getElementById('free-delivery-note').style.background = 'var(--hc-bg-alt)';
+      document.getElementById('free-delivery-note').style.color = 'var(--hc-text-muted)';
+    }
+  }
+
+  window.updateQty = function(id, qty) {
+    if (qty < 1) { Cart.remove(id); } else { Cart.update(id, qty); }
+    renderCart();
+  };
+  window.removeItem = function(id) {
+    Cart.remove(id); renderCart();
+  };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Rebel Engine — Command Centre</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg:    #080808;
+  --s1:    #0f0f0f;
+  --s2:    #141414;
+  --b1:    #1e1e1e;
+  --b2:    #2a2a2a;
+  --w:     #ffffff;
+  --dim:   #4a4a4a;
+  --dim2:  #666666;
+  --red:   #FF2D2D;
+  --green: #00ff87;
+  --amber: #ffb800;
+  --blue:  #4a9eff;
+  --mono:  'Space Mono', monospace;
+  --cond:  'Barlow Condensed', sans-serif;
+  --sans:  'DM Sans', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--w); font-family: var(--sans); min-height: 100vh; }
+
+/* ── LOCK ── */
+#lock {
+  position: fixed; inset: 0; z-index: 999; background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+}
+.lock-logo { font-family: var(--cond); font-size: 48px; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 8px; }
+.lock-logo span { color: var(--red); }
+#lock h2 { font-family: var(--mono); font-size: 10px; letter-spacing: 0.25em; color: var(--dim); text-transform: uppercase; margin-bottom: 16px; }
+#lock input {
+  background: var(--s1); border: 1px solid var(--b1); color: var(--w);
+  font-family: var(--mono); font-size: 14px; padding: 16px 24px;
+  width: 340px; outline: none; letter-spacing: 0.08em; transition: border-color 0.2s;
+}
+#lock input:focus { border-color: var(--red); }
+#lock button {
+  background: var(--red); color: var(--w); border: none;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+  padding: 16px 32px; cursor: pointer; text-transform: uppercase; width: 340px;
+  transition: opacity 0.15s;
+}
+#lock button:hover { opacity: 0.85; }
+.lock-err { color: var(--red); font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; display: none; }
+
+/* ── LAYOUT ── */
+#app { display: none; min-height: 100vh; }
+
+header {
+  border-bottom: 1px solid var(--b1); padding: 0 32px;
+  display: flex; align-items: center; justify-content: space-between; height: 56px;
+  position: sticky; top: 0; background: rgba(8,8,8,0.96); backdrop-filter: blur(8px); z-index: 50;
+}
+.logo { font-family: var(--cond); font-size: 22px; font-weight: 900; letter-spacing: -0.01em; }
+.logo em { font-style: normal; color: var(--red); }
+.logo sub { font-family: var(--mono); font-size: 9px; letter-spacing: 0.15em; color: var(--dim); vertical-align: middle; margin-left: 8px; font-weight: 400; }
+.status-wrap { display: flex; align-items: center; gap: 12px; }
+#clock { font-family: var(--mono); font-size: 10px; color: var(--dim); }
+.pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+nav {
+  display: flex; border-bottom: 1px solid var(--b1); padding: 0 32px;
+  position: sticky; top: 56px; background: rgba(8,8,8,0.96); backdrop-filter: blur(8px); z-index: 49;
+  overflow-x: auto;
+}
+nav button {
+  background: none; border: none; color: var(--dim2);
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  padding: 15px 20px; cursor: pointer; border-bottom: 2px solid transparent;
+  margin-bottom: -1px; transition: color 0.15s; white-space: nowrap; flex-shrink: 0;
+}
+nav button.active { color: var(--w); border-bottom-color: var(--red); }
+nav button:hover  { color: var(--w); }
+.nav-badge {
+  display: inline-block; background: var(--red); color: var(--w);
+  font-size: 8px; padding: 1px 5px; border-radius: 2px; margin-left: 6px; vertical-align: middle;
+}
+
+main { padding: 32px; max-width: 1300px; margin: 0 auto; }
+
+.tab { display: none; }
+.tab.active { display: block; animation: fadeUp 0.3s ease both; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
+
+.stitle {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em; color: var(--dim);
+  text-transform: uppercase; margin: 32px 0 16px;
+  display: flex; align-items: center; gap: 14px;
+}
+.stitle::after { content:''; flex:1; height:1px; background:var(--b1); }
+
+/* ── STAT CARDS ── */
+.stat-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1px; background: var(--b1); margin-bottom: 2px; }
+.stat { background: var(--s1); padding: 20px 24px; }
+.stat-l { font-family: var(--mono); font-size: 9px; letter-spacing: 0.2em; color: var(--dim); text-transform: uppercase; margin-bottom: 10px; }
+.stat-v { font-size: 32px; font-weight: 300; letter-spacing: -0.02em; line-height: 1; }
+.stat-s { font-size: 11px; color: var(--dim); margin-top: 6px; }
+
+/* ── LAST RUN ── */
+.last-run {
+  background: var(--s1); border: 1px solid var(--b1); padding: 18px 24px;
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-bottom: 24px;
+}
+.badge { font-family: var(--mono); font-size: 9px; letter-spacing: 0.15em; padding: 4px 10px; text-transform: uppercase; flex-shrink: 0; }
+.badge.draft     { background: rgba(255,184,0,0.12); color: var(--amber); }
+.badge.published { background: rgba(0,255,135,0.1);  color: var(--green); }
+.badge.failed    { background: rgba(255,45,45,0.1);  color: var(--red); }
+.badge.value     { background: rgba(74,158,255,0.1); color: var(--blue); }
+.badge.lab       { background: rgba(255,184,0,0.1);  color: var(--amber); }
+
+/* ── DRAFT CARDS ── */
+.queue-empty {
+  background: var(--s1); border: 1px solid var(--b1); padding: 60px 40px; text-align: center;
+}
+.queue-empty p { font-family: var(--mono); font-size: 12px; color: var(--dim); letter-spacing: 0.1em; }
+.queue-empty .trigger-hint { font-size: 11px; color: var(--dim); margin-top: 12px; }
+
+.draft-card {
+  background: var(--s1); border: 1px solid var(--b1);
+  margin-bottom: 1px; overflow: hidden; transition: border-color 0.2s;
+}
+.draft-card:hover { border-color: var(--b2); }
+.draft-card.status-published { border-left: 3px solid var(--green); }
+.draft-card.status-rejected  { opacity: 0.4; }
+.draft-card.status-failed    { border-left: 3px solid var(--red); }
+.draft-card.type-value       { border-left: 3px solid var(--blue); }
+.draft-card.type-lab         { border-left: 3px solid var(--amber); }
+
+.draft-header {
+  padding: 16px 24px; display: flex; align-items: center; gap: 16px;
+  cursor: pointer; user-select: none; border-bottom: 1px solid transparent; transition: border-color 0.2s;
+}
+.draft-card.open .draft-header { border-bottom-color: var(--b1); }
+
+.draft-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot-pending   { background: var(--amber); box-shadow: 0 0 6px var(--amber); animation: pulse 2s infinite; }
+.dot-published { background: var(--green); }
+.dot-rejected  { background: var(--dim); }
+.dot-failed    { background: var(--red); }
+.dot-approved  { background: var(--amber); }
+
+.draft-topic    { font-size: 14px; font-weight: 500; flex: 1; }
+.draft-meta     { font-family: var(--mono); font-size: 10px; color: var(--dim); flex-shrink: 0; }
+.draft-rotation { font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; flex-shrink: 0; }
+.draft-rotation.type-value { color: var(--blue); }
+.draft-rotation.type-lab   { color: var(--amber); }
+.draft-chevron  { font-size: 12px; color: var(--dim); transition: transform 0.2s; flex-shrink: 0; }
+.draft-card.open .draft-chevron { transform: rotate(180deg); }
+
+.draft-body { display: none; padding: 24px; }
+.draft-card.open .draft-body { display: block; }
+
+.draft-layout { display: grid; grid-template-columns: 300px 1fr; gap: 28px; align-items: start; }
+@media(max-width: 800px) { .draft-layout { grid-template-columns: 1fr; } }
+
+.draft-image-wrap { position: sticky; top: 120px; }
+.draft-image { width: 100%; aspect-ratio: 1; background: var(--s2); border: 1px solid var(--b1); object-fit: cover; display: block; }
+.draft-image-placeholder {
+  width: 100%; aspect-ratio: 1; background: var(--s2); border: 1px solid var(--b1);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: 0.1em;
+}
+.image-meta { margin-top: 8px; font-family: var(--mono); font-size: 9px; color: var(--dim); letter-spacing: 0.1em; text-transform: uppercase; }
+
+.copy-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--b1); margin-bottom: 16px; }
+.ctab {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+  padding: 10px 16px; cursor: pointer; color: var(--dim);
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  background: none; border-top: none; border-left: none; border-right: none; transition: color 0.15s;
+}
+.ctab.active { color: var(--w); border-bottom-color: var(--red); }
+
+.copy-content { display: none; }
+.copy-content.active { display: block; }
+
+.copy-box { background: var(--s2); border: 1px solid var(--b1); padding: 16px 20px; margin-bottom: 12px; }
+.copy-box-label { font-family: var(--mono); font-size: 9px; color: var(--red); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 8px; }
+.copy-box p { font-size: 13px; line-height: 1.75; color: rgba(255,255,255,0.7); white-space: pre-wrap; }
+
+.action-bar {
+  display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px;
+  padding-top: 20px; border-top: 1px solid var(--b1);
+}
+
+.btn {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  padding: 12px 22px; cursor: pointer; border: none; transition: opacity 0.15s;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.btn:hover    { opacity: 0.8; }
+.btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.btn-approve  { background: var(--green); color: #000; font-weight: 700; }
+.btn-regen    { background: transparent; color: var(--w); border: 1px solid var(--b2); }
+.btn-reject   { background: transparent; color: var(--red); border: 1px solid rgba(255,45,45,0.3); }
+.btn-primary  { background: var(--red); color: var(--w); }
+.btn-ghost    { background: transparent; color: var(--w); border: 1px solid var(--b1); }
+
+.status-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.15em; padding: 8px 16px; text-transform: uppercase; display: inline-block; }
+.label-published { color: var(--green); border: 1px solid rgba(0,255,135,0.2); }
+.label-rejected  { color: var(--dim);   border: 1px solid var(--b1); }
+.label-failed    { color: var(--red);   border: 1px solid rgba(255,45,45,0.2); }
+
+/* ── PERF BARS ── */
+.perf-row { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+.perf-label { font-family: var(--mono); font-size: 11px; min-width: 180px; color: var(--dim2); }
+.perf-track { flex: 1; height: 3px; background: var(--b1); }
+.perf-fill-value { height: 100%; background: var(--blue); transition: width 0.8s ease; }
+.perf-fill-lab   { height: 100%; background: var(--amber); transition: width 0.8s ease; }
+.perf-val { font-family: var(--mono); font-size: 11px; min-width: 32px; text-align: right; }
+
+.perf-group-label {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+  margin: 20px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--b1);
+}
+.perf-group-label.value { color: var(--blue); }
+.perf-group-label.lab   { color: var(--amber); }
+
+/* ── LEADS ── */
+.lead-item {
+  background: var(--s1); border-left: 3px solid transparent; padding: 16px 20px;
+  margin-bottom: 1px; display: grid; grid-template-columns: 40px 1fr auto; gap: 16px;
+}
+.lead-item.s5 { border-left-color: var(--red); }
+.lead-item.s4 { border-left-color: var(--amber); }
+.lead-item.s3 { border-left-color: var(--dim); }
+.lead-score { font-family: var(--mono); font-size: 22px; font-weight: 700; }
+.lead-score.hot  { color: var(--red); }
+.lead-score.warm { color: var(--amber); }
+.lead-score.cool { color: var(--dim); }
+.lead-name    { font-size: 13px; font-weight: 500; margin-bottom: 3px; }
+.lead-text    { font-size: 12px; color: rgba(255,255,255,0.55); margin-bottom: 5px; }
+.lead-summary { font-size: 11px; color: var(--dim2); font-style: italic; margin-bottom: 6px; }
+.lead-meta    { font-size: 10px; color: var(--dim); font-family: var(--mono); letter-spacing: 0.05em; }
+.lead-actions { display: flex; flex-direction: column; gap: 5px; min-width: 90px; }
+.btn-xs { font-family: var(--mono); font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; padding: 5px 8px; background: var(--s2); color: var(--dim2); border: 1px solid var(--b1); cursor: pointer; }
+.btn-xs:hover { border-color: var(--w); color: var(--w); }
+
+/* ── INTEL ── */
+.intel-brief {
+  background: var(--s1); border: 1px solid var(--b1); padding: 24px;
+  font-family: var(--mono); font-size: 12px; line-height: 2;
+  color: rgba(255,255,255,0.6); white-space: pre-wrap;
+}
+
+/* ── TRIGGER ── */
+.trigger-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1px; background: var(--b1); }
+.tcard { background: var(--s1); padding: 24px; }
+.tcard-name { font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; color: var(--dim); text-transform: uppercase; margin-bottom: 8px; }
+.tcard-desc { font-size: 12px; color: var(--dim2); margin-bottom: 20px; line-height: 1.6; }
+
+.cron-table { background: var(--s1); border: 1px solid var(--b1); padding: 24px; font-family: var(--mono); font-size: 12px; }
+.cron-row { display: flex; gap: 24px; padding: 6px 0; color: rgba(255,255,255,0.4); border-bottom: 1px solid var(--b1); }
+.cron-row:last-child { border: none; }
+.cron-row .cn { color: var(--red); min-width: 90px; }
+.cron-row .cs { min-width: 200px; color: rgba(255,255,255,0.6); }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed; bottom: 24px; right: 24px; background: var(--s1);
+  border: 1px solid var(--b1); padding: 12px 20px; font-family: var(--mono);
+  font-size: 11px; letter-spacing: 0.08em; z-index: 1000;
+  transform: translateY(12px); opacity: 0; transition: all 0.25s; pointer-events: none; max-width: 320px;
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+#toast.ok   { border-color: var(--green); color: var(--green); }
+#toast.err  { border-color: var(--red);   color: var(--red); }
+#toast.info { border-color: var(--amber); color: var(--amber); }
+
+.empty { color: var(--dim); font-family: var(--mono); font-size: 11px; padding: 32px 0; letter-spacing: 0.1em; }
+.spin { width: 12px; height: 12px; border: 1px solid var(--b2); border-top-color: var(--red); border-radius: 50%; animation: s 0.7s linear infinite; display: inline-block; }
+@keyframes s { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- LOCK -->
+<div id="lock">
+  <div class="lock-logo">REBEL<span>.</span>ENGINE</div>
+  <h2>Command Centre — Authenticate</h2>
+  <input type="password" id="pwd" placeholder="Enter admin secret" autocomplete="off" />
+  <button onclick="unlock()">ENTER</button>
+  <p class="lock-err" id="lock-err">Incorrect secret — check CRON_SECRET in Vercel</p>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <header>
+    <div class="logo">REBEL<em>.</em>ENGINE <sub>v3</sub></div>
+    <div class="status-wrap">
+      <span id="clock"></span>
+      <div class="pulse" title="Agent active"></div>
+    </div>
+  </header>
+
+  <nav>
+    <button class="active" onclick="tab('review',this)">REVIEW QUEUE <span class="nav-badge" id="pending-badge" style="display:none">0</span></button>
+    <button onclick="tab('overview',this)">OVERVIEW</button>
+    <button onclick="tab('performance',this)">PERFORMANCE</button>
+    <button onclick="tab('leads',this)">LEADS <span class="nav-badge" id="lead-badge" style="display:none">0</span></button>
+    <button onclick="tab('intel',this)">INTELLIGENCE</button>
+    <button onclick="tab('trigger',this)">TRIGGER</button>
+  </nav>
+
+  <main>
+
+    <!-- REVIEW QUEUE -->
+    <div class="tab active" id="tab-review">
+      <div class="stitle">Pending Approval</div>
+      <p style="font-size:13px;color:var(--dim2);margin-bottom:24px;line-height:1.7">
+        Every draft lands here first. <span style="color:var(--blue)">Blue border = Pure Value post.</span> <span style="color:var(--amber)">Amber border = Lab Showcase.</span>
+        <strong style="color:var(--w)">Nothing goes live without your approval.</strong>
+      </p>
+      <div id="queue-list"></div>
+      <div class="stitle">Post History</div>
+      <div id="history-list"></div>
+    </div>
+
+    <!-- OVERVIEW -->
+    <div class="tab" id="tab-overview">
+      <div id="last-run-wrap"></div>
+      <div class="stitle">Metrics</div>
+      <div class="stat-row" id="stats"></div>
+    </div>
+
+    <!-- PERFORMANCE -->
+    <div class="tab" id="tab-performance">
+      <div class="stitle">Rotation Weights</div>
+      <p style="font-size:12px;color:var(--dim2);margin-bottom:20px;line-height:1.7">
+        <span style="color:var(--blue)">Blue = Pure Value rotations</span> (target: 70% of posts).
+        <span style="color:var(--amber)">Amber = Lab Showcase</span> (target: 30% of posts).
+        The Performance Brain adjusts weights within each group based on engagement.
+      </p>
+      <div style="background:var(--s1);border:1px solid var(--b1);padding:32px;margin-bottom:24px" id="rot-bars"></div>
+      <div class="stitle">Top Posts</div>
+      <div id="top-posts"></div>
+    </div>
+
+    <!-- LEADS -->
+    <div class="tab" id="tab-leads">
+      <div class="stitle">Lead Intelligence</div>
+      <p style="font-size:13px;color:var(--dim2);margin-bottom:8px;line-height:1.7">
+        High-intent commenters flagged by the scanner. <span style="font-family:var(--mono);font-size:10px;color:var(--red)">You contact them. The agent never does.</span>
+      </p>
+      <div style="margin-bottom:24px"></div>
+      <div id="leads-list"></div>
+    </div>
+
+    <!-- INTELLIGENCE -->
+    <div class="tab" id="tab-intel">
+      <div class="stitle">Daily Trend Brief</div>
+      <p style="font-size:13px;color:var(--dim2);margin-bottom:20px">Scraped daily from HN, Dev.to, GitHub Trending. Claude synthesises into a content strategy brief — injected into every generation call.</p>
+      <div id="intel-wrap"></div>
+      <div style="margin-top:16px"><button class="btn btn-ghost" onclick="triggerTrends()">REFRESH BRIEF</button></div>
+    </div>
+
+    <!-- TRIGGER -->
+    <div class="tab" id="tab-trigger">
+      <div class="stitle">Manual Controls</div>
+      <div class="trigger-grid">
+        <div class="tcard">
+          <div class="tcard-name">Generate Draft</div>
+          <div class="tcard-desc">Runs the full pipeline — picks rotation (70% value / 30% lab), generates copy + image, saves to review queue. Does not post.</div>
+          <button class="btn btn-primary" id="btn-fire" onclick="triggerFire()">GENERATE NOW</button>
+        </div>
+        <div class="tcard">
+          <div class="tcard-name">Performance Analysis</div>
+          <div class="tcard-desc">Pulls Meta Insights for all published posts. Re-weights rotation priorities within each group.</div>
+          <button class="btn btn-ghost" onclick="triggerAnalyze()">ANALYSE</button>
+        </div>
+        <div class="tcard">
+          <div class="tcard-name">Lead Scan</div>
+          <div class="tcard-desc">Reads new comments across all posts. Scores and flags high-intent commenters.</div>
+          <button class="btn btn-ghost" onclick="triggerScan()">SCAN</button>
+        </div>
+        <div class="tcard">
+          <div class="tcard-name">Trend Intelligence</div>
+          <div class="tcard-desc">Scrapes dev trends and generates a fresh strategy brief for the next generation cycle.</div>
+          <button class="btn btn-ghost" onclick="triggerTrends()">REFRESH</button>
+        </div>
+      </div>
+
+      <div class="stitle" style="margin-top:40px">Cron Schedule</div>
+      <div class="cron-table">
+        <div class="cron-row"><span class="cn">fire</span><span class="cs">Tue + Fri, 08:00 SAST</span><span>0 6 * * 2,5</span></div>
+        <div class="cron-row"><span class="cn">analyze</span><span class="cs">Every 6 hours</span><span>0 */6 * * *</span></div>
+        <div class="cron-row"><span class="cn">scan</span><span class="cs">Every 2 hours</span><span>0 */2 * * *</span></div>
+        <div class="cron-row"><span class="cn">trends</span><span class="cs">Daily, 06:00 UTC</span><span>0 6 * * *</span></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let SECRET = "";
+
+const ROTATION_LABELS = {
+  value_react:   "React Architecture",
+  value_perf:    "Performance Eng.",
+  value_css:     "Modern CSS",
+  value_debug:   "Debug in Public",
+  lab_tool:      "Lab Tool Showcase",
+  lab_template:  "Free Template",
+};
+
+const ROTATION_TYPE = {
+  value_react:   "value",
+  value_perf:    "value",
+  value_css:     "value",
+  value_debug:   "value",
+  lab_tool:      "lab",
+  lab_template:  "lab",
+};
+
+// ─── Auth ─────────────────────────────────────────────────
+function unlock() {
+  const val = document.getElementById("pwd").value.trim();
+  if (!val) return;
+  SECRET = val;
+  fetch("/api/agent/drafts", { headers: h() })
+    .then(r => {
+      if (r.status === 401) {
+        document.getElementById("lock-err").style.display = "block";
+        SECRET = "";
+      } else {
+        document.getElementById("lock").style.display = "none";
+        document.getElementById("app").style.display  = "block";
+        init();
+      }
+    }).catch(() => {
+      document.getElementById("lock-err").style.display = "block";
+      SECRET = "";
+    });
+}
+document.getElementById("pwd").addEventListener("keydown", e => { if (e.key === "Enter") unlock(); });
+
+function h()   { return { "x-agent-secret": SECRET, "Content-Type": "application/json" }; }
+async function api(path, method = "GET", body = null) {
+  const r = await fetch(path, { method, headers: h(), body: body ? JSON.stringify(body) : null });
+  return r.json();
+}
+
+function init() {
+  tick(); setInterval(tick, 1000);
+  loadTab("review");
+}
+function tick() {
+  const el = document.getElementById("clock");
+  if (el) el.textContent = new Date().toLocaleString("en-ZA",{timeZone:"Africa/Johannesburg",hour12:false});
+}
+
+function tab(name, btn) {
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+  document.getElementById("tab-" + name).classList.add("active");
+  btn.classList.add("active");
+  loadTab(name);
+}
+function loadTab(name) {
+  if (name === "review")      loadReview();
+  if (name === "overview")    loadOverview();
+  if (name === "performance") loadPerformance();
+  if (name === "leads")       loadLeads();
+  if (name === "intel")       loadIntel();
+}
+
+// ─── REVIEW ───────────────────────────────────────────────
+async function loadReview() {
+  const data    = await api("/api/agent/drafts");
+  const drafts  = data.drafts ?? [];
+  const pending = drafts.filter(d => d.status === "pending");
+  const history = drafts.filter(d => d.status !== "pending");
+
+  const badge = document.getElementById("pending-badge");
+  if (pending.length > 0) { badge.textContent = pending.length; badge.style.display = "inline"; }
+  else badge.style.display = "none";
+
+  document.getElementById("queue-list").innerHTML = pending.length === 0
+    ? `<div class="queue-empty"><p>NO POSTS PENDING REVIEW</p><p class="trigger-hint">Cron fires Tue + Fri at 08:00 SAST, or use Trigger tab.</p></div>`
+    : pending.map(d => draftCard(d, true)).join("");
+
+  document.getElementById("history-list").innerHTML = history.length === 0
+    ? `<div class="empty">No post history yet.</div>`
+    : history.slice(0, 20).map(d => draftCard(d, false)).join("");
+}
+
+function draftCard(draft, isOpen) {
+  const statusDot = { pending:"dot-pending", approved:"dot-approved", published:"dot-published", rejected:"dot-rejected", failed:"dot-failed" }[draft.status] ?? "dot-pending";
+  const ago       = draft.createdAt ? timeAgo(new Date(draft.createdAt)) : "";
+  const rType     = draft.rotationType ?? ROTATION_TYPE[draft.rotationId] ?? "value";
+  const rLabel    = ROTATION_LABELS[draft.rotationId] ?? draft.rotationId ?? "";
+
+  const imageHtml = draft.visual?.imageUrl
+    ? `<img class="draft-image" src="${draft.visual.imageUrl}" alt="Generated image" loading="lazy" />`
+    : `<div class="draft-image-placeholder">IMAGE GENERATING...</div>`;
+
+  const actionBar = draft.status === "pending" ? `
+    <div class="action-bar">
+      <button class="btn btn-approve" onclick="approveDraft('${draft.id}', this)">✓ APPROVE & POST</button>
+      <button class="btn btn-regen"   onclick="regenDraft('${draft.id}', this)">↻ REGENERATE COPY</button>
+      <button class="btn btn-reject"  onclick="rejectDraft('${draft.id}', this)">✕ REJECT</button>
+    </div>` : `
+    <div class="action-bar">
+      <span class="status-label label-${draft.status}">${draft.status.toUpperCase()}</span>
+      ${draft.publishedAt ? `<span style="font-family:var(--mono);font-size:10px;color:var(--dim)">Published ${timeAgo(new Date(draft.publishedAt))}</span>` : ""}
+    </div>`;
+
+  return `
+  <div class="draft-card status-${draft.status} type-${rType} ${isOpen ? "open" : ""}" id="dc-${draft.id}">
+    <div class="draft-header" onclick="toggleDraft('${draft.id}')">
+      <div class="draft-status-dot ${statusDot}"></div>
+      <div class="draft-topic">${draft.topic ?? "Untitled"}</div>
+      <div class="draft-rotation type-${rType}">${rLabel.toUpperCase()}</div>
+      <div class="draft-meta">${ago}</div>
+      <div class="draft-chevron">▾</div>
+    </div>
+    <div class="draft-body">
+      <div class="draft-layout">
+        <div class="draft-image-wrap">
+          ${imageHtml}
+          <div class="image-meta">${draft.visual?.styleUsed ?? ""} · ${draft.visual?.type ?? ""}</div>
+        </div>
+        <div>
+          <div class="copy-tabs">
+            <button class="ctab active" onclick="copyTab('${draft.id}','fb',this)">FACEBOOK</button>
+            <button class="ctab" onclick="copyTab('${draft.id}','ig',this)">INSTAGRAM</button>
+          </div>
+          <div class="copy-content active" id="ct-${draft.id}-fb">
+            <div class="copy-box"><div class="copy-box-label">Post Copy</div><p>${draft.copy?.facebook ?? ""}</p></div>
+          </div>
+          <div class="copy-content" id="ct-${draft.id}-ig">
+            <div class="copy-box"><div class="copy-box-label">Caption</div><p>${draft.copy?.instagram ?? ""}</p></div>
+          </div>
+          ${actionBar}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleDraft(id) { document.getElementById("dc-" + id).classList.toggle("open"); }
+
+function copyTab(draftId, platform, btn) {
+  const card = document.getElementById("dc-" + draftId);
+  card.querySelectorAll(".ctab").forEach(b => b.classList.remove("active"));
+  card.querySelectorAll(".copy-content").forEach(c => c.classList.remove("active"));
+  btn.classList.add("active");
+  document.getElementById(`ct-${draftId}-${platform}`).classList.add("active");
+}
+
+// ─── DRAFT ACTIONS ─────────────────────────────────────────
+async function approveDraft(id, btn) {
+  if (!confirm("Post this to Facebook + Instagram now?")) return;
+  btn.disabled = true; btn.textContent = "POSTING...";
+  const r = await api("/api/agent/publish", "POST", { draftId: id });
+  if (r.success) { toast("Posted to FB + IG ✓", "ok"); }
+  else { toast(`Error: ${r.error ?? "Publish failed"}`, "err"); btn.disabled = false; btn.textContent = "✓ APPROVE & POST"; }
+  loadReview();
+}
+
+async function regenDraft(id, btn) {
+  btn.disabled = true; btn.textContent = "REGENERATING...";
+  const r = await api("/api/agent/draft", "POST", { draftId: id, action: "regenerate" });
+  if (r.success) { toast("New copy generated — refreshing queue", "ok"); loadReview(); }
+  else { toast(`Error: ${r.error}`, "err"); btn.disabled = false; btn.textContent = "↻ REGENERATE COPY"; }
+}
+
+async function rejectDraft(id, btn) {
+  if (!confirm("Reject and discard this draft?")) return;
+  btn.disabled = true;
+  await api("/api/agent/draft", "POST", { draftId: id, action: "reject" });
+  toast("Draft rejected", "info");
+  loadReview();
+}
+
+// ─── OVERVIEW ─────────────────────────────────────────────
+async function loadOverview() {
+  const d  = await api("/api/agent/status");
+  const lr = d.lastRun;
+  const m  = d.metrics ?? {};
+
+  document.getElementById("last-run-wrap").innerHTML = lr ? `
+    <div class="last-run">
+      <div class="badge ${lr.status?.includes("DRAFT") ? "draft" : lr.status === "FATAL" ? "failed" : "published"}">${lr.status ?? "—"}</div>
+      <div>
+        <div style="font-size:13px;font-weight:500">${lr.rotation ?? "—"}</div>
+        <div style="font-size:11px;color:var(--dim);margin-top:2px">${lr.topic ?? ""}</div>
+      </div>
+      <div style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--dim)">
+        ${lr.timestamp ? new Date(lr.timestamp).toLocaleString("en-ZA",{timeZone:"Africa/Johannesburg"}) : ""}
+      </div>
+    </div>` : "";
+
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><div class="stat-l">Published</div><div class="stat-v">${m.totalPosts ?? 0}</div></div>
+    <div class="stat"><div class="stat-l">Avg Score</div><div class="stat-v">${m.avgScore ?? "—"}</div><div class="stat-s">out of 100</div></div>
+    <div class="stat"><div class="stat-l">Hot Leads</div><div class="stat-v" style="color:var(--red)">${m.hotLeads ?? 0}</div><div class="stat-s">score 4–5</div></div>
+    <div class="stat"><div class="stat-l">All Leads</div><div class="stat-v">${m.leadsFound ?? 0}</div></div>
+  `;
+}
+
+// ─── PERFORMANCE ──────────────────────────────────────────
+async function loadPerformance() {
+  const d = await api("/api/agent/perf");
+  const w = d.weights ?? {};
+
+  const valueRotations = [
+    { id: "value_react", label: "React Architecture" },
+    { id: "value_perf",  label: "Performance Eng." },
+    { id: "value_css",   label: "Modern CSS" },
+    { id: "value_debug", label: "Debug in Public" },
+  ];
+  const labRotations = [
+    { id: "lab_tool",     label: "Lab Tool Showcase" },
+    { id: "lab_template", label: "Free Template" },
+  ];
+
+  let html = `<div class="perf-group-label value">Pure Value Rotations — target 70% of posts</div>`;
+  html += valueRotations.map(r => `
+    <div class="perf-row">
+      <div class="perf-label">${r.label}</div>
+      <div class="perf-track"><div class="perf-fill-value" style="width:${w[r.id]??50}%"></div></div>
+      <div class="perf-val">${w[r.id]??50}</div>
+    </div>`).join("");
+
+  html += `<div class="perf-group-label lab" style="margin-top:24px">Lab Showcase Rotations — target 30% of posts</div>`;
+  html += labRotations.map(r => `
+    <div class="perf-row">
+      <div class="perf-label">${r.label}</div>
+      <div class="perf-track"><div class="perf-fill-lab" style="width:${w[r.id]??50}%"></div></div>
+      <div class="perf-val">${w[r.id]??50}</div>
+    </div>`).join("");
+
+  document.getElementById("rot-bars").innerHTML = html;
+
+  const top = d.topPosts ?? [];
+  document.getElementById("top-posts").innerHTML = top.length
+    ? top.map(p => {
+        const rType = ROTATION_TYPE[p.rotationId] ?? "value";
+        return `<div style="background:var(--s1);border:1px solid var(--b1);border-left:3px solid ${rType==="lab"?"var(--amber)":"var(--blue)"};padding:16px 20px;margin-bottom:1px;display:flex;align-items:center;gap:16px">
+          <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:${p.score>60?"var(--green)":p.score>35?"var(--amber)":"var(--dim)"};min-width:48px">${p.score}</div>
+          <div>
+            <div style="font-size:13px">${ROTATION_LABELS[p.rotationId] ?? p.rotationId ?? ""}</div>
+            <div style="font-size:11px;color:var(--dim);margin-top:2px;font-family:var(--mono)">${p.platform ?? ""} · ${p.publishedAt ? new Date(p.publishedAt).toLocaleDateString("en-ZA") : ""}</div>
+          </div>
+        </div>`;
+      }).join("")
+    : `<div class="empty">No performance data yet. Populates 24h after first published post.</div>`;
+}
+
+// ─── LEADS ────────────────────────────────────────────────
+async function loadLeads() {
+  const d      = await api("/api/agent/leads");
+  const leads  = (d.leads ?? []).sort((a,b) => b.leadScore - a.leadScore);
+  const newCnt = leads.filter(l => l.status === "new").length;
+  const badge  = document.getElementById("lead-badge");
+  if (newCnt) { badge.textContent = newCnt; badge.style.display = "inline"; }
+  else badge.style.display = "none";
+
+  document.getElementById("leads-list").innerHTML = leads.length
+    ? leads.map(l => `
+      <div class="lead-item s${l.leadScore}">
+        <div class="lead-score ${l.leadScore>=4?"hot":l.leadScore===3?"warm":"cool"}">${l.leadScore}</div>
+        <div>
+          <div class="lead-name">${l.from}</div>
+          <div class="lead-text">"${l.text}"</div>
+          <div class="lead-summary">${l.summary ?? ""}</div>
+          <div class="lead-meta">${(l.intent??'').toUpperCase()} · ${(l.platform??'').toUpperCase()} · ${l.foundAt ? new Date(l.foundAt).toLocaleDateString("en-ZA") : ""} · ${l.status}</div>
+        </div>
+        <div class="lead-actions">
+          <button class="btn-xs" onclick="setLeadStatus('${l.commentId}','reviewed')">REVIEWED</button>
+          <button class="btn-xs" onclick="setLeadStatus('${l.commentId}','contacted')">CONTACTED</button>
+          <button class="btn-xs" onclick="setLeadStatus('${l.commentId}','closed')">CLOSED</button>
+        </div>
+      </div>`).join("")
+    : `<div class="empty">No leads yet. Scanner flags high-intent comments every 2 hours.</div>`;
+}
+
+async function setLeadStatus(cid, status) {
+  await api("/api/agent/leads", "POST", { commentId: cid, status });
+  toast("Status updated", "ok");
+  loadLeads();
+}
+
+// ─── INTEL ────────────────────────────────────────────────
+async function loadIntel() {
+  const d = await api("/api/agent/intel");
+  document.getElementById("intel-wrap").innerHTML = d.brief
+    ? `<div class="intel-brief">${d.brief}</div>
+       <p style="font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:10px">Generated: ${d.generatedAt ? new Date(d.generatedAt).toLocaleString("en-ZA",{timeZone:"Africa/Johannesburg"}) : "unknown"}</p>`
+    : `<div class="empty">No brief yet — fires daily at 06:00 UTC or click REFRESH BRIEF above.</div>`;
+}
+
+// ─── TRIGGERS ─────────────────────────────────────────────
+async function triggerFire() {
+  const btn = document.getElementById("btn-fire");
+  btn.disabled = true; btn.innerHTML = `<span class="spin"></span> GENERATING...`;
+  const r = await api("/api/agent/fire", "POST");
+  btn.disabled = false; btn.textContent = "GENERATE NOW";
+  if (r.draftId) {
+    toast(`Draft ready: "${r.topic}" [${r.rotationType?.toUpperCase() ?? ""}] — check Review Queue`, "ok");
+    tab("review", document.querySelector("nav button"));
+  } else {
+    toast(`Error: ${r.error ?? "Generation failed"}`, "err");
+  }
+}
+async function triggerAnalyze() {
+  toast("Analysing...", "info");
+  const r = await api("/api/agent/analyze", "POST");
+  toast(r.success ? `Analysed ${r.analysed} posts` : `Error: ${r.error}`, r.success ? "ok" : "err");
+}
+async function triggerScan() {
+  toast("Scanning...", "info");
+  const r = await api("/api/agent/scan", "POST");
+  toast(`${r.scanned ?? 0} comments scanned · ${r.leadsFound ?? 0} leads found`, "ok");
+}
+async function triggerTrends() {
+  toast("Refreshing brief...", "info");
+  const r = await api("/api/agent/trends", "POST");
+  toast(r.success ? "Brief updated" : `Error: ${r.error}`, r.success ? "ok" : "err");
+  if (document.getElementById("tab-intel").classList.contains("active")) loadIntel();
+}
+
+// ─── UTILS ────────────────────────────────────────────────
+function timeAgo(date) {
+  const s = Math.floor((Date.now() - date) / 1000);
+  if (s < 60)    return `${s}s ago`;
+  if (s < 3600)  return `${Math.floor(s/60)}m ago`;
+  if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+  return `${Math.floor(s/86400)}d ago`;
+}
+
+function toast(msg, type = "ok") {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.className   = "show " + type;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.className = "", 4000);
+}
+</script>
+</body>
+</html>

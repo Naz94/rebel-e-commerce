@@ -1,0 +1,14 @@
+{
+  "name": "rebel-engine",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.0",
+    "@octokit/rest": "^20.1.1",
+    "@upstash/redis": "^1.31.0",
+    "gifencoder": "^2.0.1",
+    "openai": "^4.52.0",
+    "pureimage": "^0.4.13"
+  }
+}

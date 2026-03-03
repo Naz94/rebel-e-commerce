@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Drop | Drip District</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- NAV -->
+  <!-- ══════════════════════════════════════════ -->
+  <nav data-nav>
+    <div class="re-container">
+      <div class="re-nav__inner">
+        <!-- Logo -->
+        <a href="index.html" class="re-nav__logo">
+          DRIP<span data-store-logo-text>DISTRICT</span>
+          <img data-store-logo style="display:none; height:36px; width:auto;">
+        </a>
+
+        <!-- Desktop Links -->
+        <ul class="re-nav__links">
+          <li><a href="index.html" data-nav-link>Home</a></li>
+          <li><a href="shop.html" data-nav-link>Shop</a></li>
+          <li><a href="shop.html?category=New+Arrivals" data-nav-link>New Drops</a></li>
+          <li><a href="shop.html?category=Sale" data-nav-link>Sale</a></li>
+          <li><a href="about.html" data-nav-link>About</a></li>
+        </ul>
+
+        <!-- Search + Actions -->
+        <div class="re-nav__actions">
+          <div class="re-search-wrapper">
+            <input class="re-nav__search" data-search-input placeholder="Search gear..." type="search">
+            <div class="re-search__results" data-search-results></div>
+          </div>
+          <div class="re-nav__icon" data-wishlist-icon title="Wishlist">
+            ♡<span data-wishlist-count style="display:none">0</span>
+          </div>
+          <div class="re-nav__icon" data-cart-icon title="Cart">
+            🛒<span data-cart-count style="display:none">0</span>
+          </div>
+          <div data-hamburger><span></span><span></span><span></span></div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Mobile Nav -->
+  <div data-mobile-nav>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="shop.html">Shop</a>
+      <a href="shop.html?category=New+Arrivals">New Drops</a>
+      <a href="shop.html?category=Sale">Sale</a>
+      <a href="about.html">About</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- HERO -->
+  <!-- ══════════════════════════════════════════ -->
+  <section class="dd-hero">
+    <div class="dd-hero__content">
+      <div class="dd-hero__eyebrow">SS25 Collection</div>
+      <h1 class="dd-hero__title">
+        Wear<br>
+        What<br>
+        <em>Hits.</em>
+      </h1>
+      <p class="dd-hero__sub">
+        Premium streetwear curated for those who move different. New drops every Friday.
+      </p>
+      <div class="dd-hero__cta">
+        <a href="shop.html" class="re-btn re-btn--primary re-btn--lg">Shop Now</a>
+        <a href="shop.html?category=New+Arrivals" class="re-btn re-btn--ghost re-btn--lg">New Arrivals</a>
+      </div>
+      <div class="dd-hero__scroll">
+        <span></span>
+        Scroll to explore
+      </div>
+    </div>
+    <div class="dd-hero__media">
+      <!-- Replace with actual hero image -->
+      <div style="width:100%;height:100%;background:linear-gradient(135deg,#1a1a1a 0%,#333 100%);display:flex;align-items:center;justify-content:center;">
+        <span style="font-size:12rem;opacity:0.3">👟</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- TICKER -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="dd-ticker">
+    <div class="dd-ticker__track" id="tickerTrack">
+      <span class="dd-ticker__item">Free shipping over R999</span>
+      <span class="dd-ticker__item">New drops every Friday</span>
+      <span class="dd-ticker__item">30 day returns</span>
+      <span class="dd-ticker__item">Authentic gear only</span>
+      <span class="dd-ticker__item">EFT & card accepted</span>
+      <span class="dd-ticker__item">SA owned and operated</span>
+      <!-- JS duplicates track for infinite loop -->
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- CATEGORIES -->
+  <!-- ══════════════════════════════════════════ -->
+  <section class="re-section re-section--sm">
+    <div class="re-container">
+      <div class="dd-section-header">
+        <h2 class="dd-section-title">Shop by <span>Category</span></h2>
+        <a href="shop.html" class="re-btn re-btn--ghost">View All</a>
+      </div>
+      <div class="dd-cats" id="catFilters">
+        <button class="dd-cat active" onclick="filterCat(null, this)">All</button>
+        <button class="dd-cat" onclick="filterCat('Hoodies', this)">Hoodies</button>
+        <button class="dd-cat" onclick="filterCat('Tees', this)">Tees</button>
+        <button class="dd-cat" onclick="filterCat('Bottoms', this)">Bottoms</button>
+        <button class="dd-cat" onclick="filterCat('Sneakers', this)">Sneakers</button>
+        <button class="dd-cat" onclick="filterCat('Accessories', this)">Accessories</button>
+        <button class="dd-cat" onclick="filterCat('Caps', this)">Caps</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- PRODUCTS -->
+  <!-- ══════════════════════════════════════════ -->
+  <section class="re-section--sm">
+    <div class="re-container">
+      <div id="productGrid" class="re-grid re-grid--4" style="min-height:300px;">
+        <!-- Loaded by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- FEATURE BANNER -->
+  <!-- ══════════════════════════════════════════ -->
+  <section class="dd-banner">
+    <div class="dd-banner__content">
+      <p class="dd-banner__eyebrow">Limited Release</p>
+      <h2 class="dd-banner__title">
+        THE<br>CAPSULE<br>DROP
+      </h2>
+      <p style="color:rgba(255,255,255,0.6); margin-bottom:32px; max-width:380px;">
+        Exclusive pieces. Limited quantities. Once they're gone, they're gone.
+      </p>
+      <a href="shop.html?collection=capsule" class="re-btn re-btn--primary re-btn--lg">
+        Shop Capsule Collection
+      </a>
+    </div>
+    <div class="dd-banner__media">
+      <div style="width:100%;height:100%;min-height:480px;background:linear-gradient(160deg,#222 0%,#444 100%);display:flex;align-items:center;justify-content:center;">
+        <span style="font-size:14rem;opacity:0.2">🧢</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- NEW ARRIVALS -->
+  <!-- ══════════════════════════════════════════ -->
+  <section class="re-section">
+    <div class="re-container">
+      <div class="dd-section-header">
+        <h2 class="dd-section-title">New <span>Arrivals</span></h2>
+        <a href="shop.html?sort=newest" class="re-btn re-btn--ghost">See All</a>
+      </div>
+      <div id="newArrivalsGrid" class="re-grid re-grid--auto">
+        <!-- Loaded by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- BRAND STRIP -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="dd-brands">
+    <span class="dd-brand-name">NIKE</span>
+    <span class="dd-brand-name">ADIDAS</span>
+    <span class="dd-brand-name">PUMA</span>
+    <span class="dd-brand-name">NEW BALANCE</span>
+    <span class="dd-brand-name">JORDAN</span>
+    <span class="dd-brand-name">VANS</span>
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- TRUST BADGES -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="dd-trust">
+    <div class="re-container">
+      <div class="dd-trust__grid">
+        <div class="dd-trust__item">
+          <span class="dd-trust__icon">🚚</span>
+          <div class="dd-trust__text">
+            <strong>Fast Delivery</strong>
+            <span>Nationwide in 2–5 days</span>
+          </div>
+        </div>
+        <div class="dd-trust__item">
+          <span class="dd-trust__icon">↩️</span>
+          <div class="dd-trust__text">
+            <strong>Easy Returns</strong>
+            <span>30 day hassle-free returns</span>
+          </div>
+        </div>
+        <div class="dd-trust__item">
+          <span class="dd-trust__icon">🔒</span>
+          <div class="dd-trust__text">
+            <strong>Secure Payment</strong>
+            <span>EFT, Yoco & card accepted</span>
+          </div>
+        </div>
+        <div class="dd-trust__item">
+          <span class="dd-trust__icon">💯</span>
+          <div class="dd-trust__text">
+            <strong>100% Authentic</strong>
+            <span>Every piece verified</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- FOOTER -->
+  <!-- ══════════════════════════════════════════ -->
+  <footer class="dd-footer">
+    <div class="re-container">
+      <div class="re-footer__grid" style="margin-bottom:64px;">
+        <div>
+          <div class="dd-footer__logo">DRIP<span>DISTRICT</span></div>
+          <p style="font-size:0.9rem; max-width:280px; line-height:1.7;">
+            <span data-store-tagline>Authentic streetwear. South African owned. Nationally delivered.</span>
+          </p>
+          <div class="dd-footer__social">
+            <a href="#" title="Instagram">📷</a>
+            <a href="#" title="TikTok">🎵</a>
+            <a data-whatsapp href="#" title="WhatsApp">💬</a>
+            <a href="#" title="Twitter/X">✖</a>
+          </div>
+        </div>
+        <div>
+          <p class="re-footer__heading">Shop</p>
+          <ul class="re-footer__links">
+            <li><a href="shop.html">All Products</a></li>
+            <li><a href="shop.html?category=New+Arrivals">New Arrivals</a></li>
+            <li><a href="shop.html?category=Hoodies">Hoodies</a></li>
+            <li><a href="shop.html?category=Sneakers">Sneakers</a></li>
+            <li><a href="shop.html?category=Sale">Sale</a></li>
+          </ul>
+        </div>
+        <div>
+          <p class="re-footer__heading">Help</p>
+          <ul class="re-footer__links">
+            <li><a href="contact.html">Contact Us</a></li>
+            <li><a href="about.html">About</a></li>
+            <li><a href="order-status.html">Track Order</a></li>
+            <li><a href="#returns">Returns Policy</a></li>
+            <li><a href="#sizing">Size Guide</a></li>
+          </ul>
+        </div>
+        <div>
+          <p class="re-footer__heading">Connect</p>
+          <ul class="re-footer__links">
+            <li><a href="#">Instagram</a></li>
+            <li><a href="#">TikTok</a></li>
+            <li><a data-whatsapp href="#">WhatsApp Us</a></li>
+          </ul>
+          <div style="margin-top:24px;">
+            <p class="re-footer__heading">Contact</p>
+            <p style="font-size:0.85rem; line-height:2;">
+              <span data-store-phone></span><br>
+              <span data-store-email></span>
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="re-footer__bottom">
+        <p>© 2025 <span data-store-name>Drip District</span>. All rights reserved.</p>
+        <p>Built on <strong style="color:var(--re-accent);">Rebel Engine</strong> · Powered in 🇿🇦</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- SCRIPTS -->
+  <!-- ══════════════════════════════════════════ -->
+  <script src="../../shared/rebel-engine.js"></script>
+  <script src="config.js"></script>
+  <script>
+    // Duplicate ticker for seamless loop
+    const track = document.getElementById('tickerTrack');
+    if (track) track.innerHTML += track.innerHTML;
+
+    let allProducts = [];
+
+    async function loadPage() {
+      await RebelEngine.init(STORE_CONFIG);
+
+      Helpers.loading('#productGrid', true);
+      Helpers.loading('#newArrivalsGrid', true);
+
+      allProducts = await Products.getAll();
+      const arrivals = await Products.getAll({ sort: 'newest', limit: 4 });
+
+      Products.render('#productGrid', allProducts.slice(0, 8));
+      Products.render('#newArrivalsGrid', arrivals);
+
+      Search.initLive('[data-search-input]', '[data-search-results]');
+    }
+
+    function filterCat(cat, btn) {
+      document.querySelectorAll('.dd-cat').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const filtered = cat ? allProducts.filter(p => p.category === cat) : allProducts;
+      Products.render('#productGrid', filtered.slice(0, 8));
+    }
+
+    document.addEventListener('DOMContentLoaded', loadPage);
+  </script>
+</body>
+</html>
