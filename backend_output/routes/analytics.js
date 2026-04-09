@@ -1,23 +1,23 @@
 const express = require('express');
-const router = express.Router();
+const router  = express.Router();
+
 const {
   getDashboardOverview,
   getSalesOverTime,
   getTopProducts,
-  getTopCustomers
+  getTopCustomers,
+  getRevenueChart   // FIX: was implemented in controller but never wired to a route
 } = require('../controllers/analytics');
+
 const { protect, staffOnly, checkPermission } = require('../middleware/auth');
 
-// Dashboard overview
-router.get('/dashboard', protect, staffOnly, checkPermission('analytics', 'view'), getDashboardOverview);
+// All analytics routes require staff auth + view permission
+router.use(protect, staffOnly);
 
-// Sales over time
-router.get('/sales', protect, staffOnly, checkPermission('analytics', 'view'), getSalesOverTime);
-
-// Top products
-router.get('/top-products', protect, staffOnly, checkPermission('analytics', 'view'), getTopProducts);
-
-// Top customers
-router.get('/top-customers', protect, staffOnly, checkPermission('analytics', 'view'), getTopCustomers);
+router.get('/dashboard',     checkPermission('analytics', 'view'), getDashboardOverview);
+router.get('/sales',         checkPermission('analytics', 'view'), getSalesOverTime);
+router.get('/top-products',  checkPermission('analytics', 'view'), getTopProducts);
+router.get('/top-customers', checkPermission('analytics', 'view'), getTopCustomers);
+router.get('/revenue-chart', checkPermission('analytics', 'view'), getRevenueChart);
 
 module.exports = router;
