@@ -3,82 +3,98 @@ const { TIMELINE_CAP } = require('../constants/order');
 
 const OrderSchema = new mongoose.Schema({
   clientId: {
-    type: String,
+    type:     String,
     required: true,
-    index: true
+    index:    true
   },
   orderNumber: {
-    type: String,
+    type:   String,
     unique: true
   },
   customer: {
-    name: String,
+    name:  String,
     email: { type: String, required: true },
     phone: String
   },
   items: [{
     product: {
-      id: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
+      id:   { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
       name: String,
-      sku: String
+      sku:  String
     },
-    quantity: { type: Number, required: true },
+    quantity:        { type: Number, required: true },
     priceAtPurchase: { type: Number, required: true },
-    subtotal: { type: Number, required: true },
-    // FIX 1: Added missing fields that expireOrders.js relies on
+    subtotal:        { type: Number, required: true },
+    // Tracks whether stock was taken at order time — used by expiry cron
+    // to decide whether to restore it. Both are true immediately on order
+    // creation (atomic deduction model). Only reserved && !deducted orders
+    // get stock restored on expiry.
     stockReserved: { type: Boolean, default: false },
     stockDeducted: { type: Boolean, default: false }
   }],
   totals: {
     subtotal: { type: Number, default: 0 },
     shipping: { type: Number, default: 0 },
-    tax: { type: Number, default: 0 },
-    total: { type: Number, default: 0 },
-    vatRate: { type: Number, default: 0.15 }
+    tax:      { type: Number, default: 0 },
+    total:    { type: Number, default: 0 },
+    vatRate:  { type: Number, default: 0.15 }
   },
   fulfillment: {
     status: {
-      type: String,
-      enum: ['pending', 'processing', 'shipped', 'delivered', 'completed', 'cancelled'],
+      type:    String,
+      enum:    ['pending', 'processing', 'shipped', 'delivered', 'completed', 'cancelled'],
       default: 'pending'
     },
     trackingNumber: String,
-    courier: String,
-    shippedAt: Date
+    courier:        String,
+    shippedAt:      Date
   },
   payment: {
     status: {
-      type: String,
-      enum: ['pending', 'paid', 'failed', 'refunded'],
+      type:    String,
+      enum:    ['pending', 'paid', 'failed', 'refunded'],
       default: 'pending'
     },
-    method: String,
+    method:        String,
     transactionId: String,
-    paidAt: Date
+    paidAt:        Date
   },
-  // FIX 2: Added missing timeline array that expireOrders.js pushes to
+  // Timeline of state changes, capped at TIMELINE_CAP entries
   timeline: {
     type: [{
-      event: { type: String, required: true },
+      event:     { type: String, required: true },
       timestamp: { type: Date, default: Date.now },
-      note: String,
-      actor: String
+      note:      String,
+      actor:     String
     }],
     default: []
   },
-  stockReserved: { type: Boolean, default: false },
-  notes: String,
-  internalTags: [String],
-  lastCleanupAttempt: Date
+  // FIX H-2: eftDetails was written by createOrder but had no schema definition.
+  // Mongoose strict mode silently drops undefined fields — this caused banking
+  // details to never persist to the DB.
+  eftDetails: {
+    bankName:      String,
+    accountHolder: String,
+    accountNumber: String,
+    branchCode:    String,
+    reference:     String
+  },
+  // Top-level flag summarising item-level stockReserved state
+  stockReserved:      { type: Boolean, default: false },
+  notes:              String,
+  internalTags:       [String],
+  lastCleanupAttempt: Date,
+  billingAddress:     mongoose.Schema.Types.Mixed,
+  shippingAddress:    mongoose.Schema.Types.Mixed
 }, { timestamps: true });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TENANT FIREWALL
-// FIX 3: Allow system/cron operations to bypass via { bypassTenantFirewall: true }
-// Usage: Order.find({ 'payment.status': 'pending' }).setOptions({ bypassTenantFirewall: true })
+// Any find* query without clientId is rejected unless the caller explicitly
+// opts out with .setOptions({ bypassTenantFirewall: true }).
+// Allowed bypasses: cron jobs, migration scripts, system-level operations.
 // ─────────────────────────────────────────────────────────────────────────────
 OrderSchema.pre(/^find/, function (next) {
-  // Allow explicit bypass for internal system operations (e.g. cron jobs)
   if (this.getOptions().bypassTenantFirewall === true) return next();
 
   const query = this.getQuery();
@@ -93,34 +109,39 @@ OrderSchema.pre(/^find/, function (next) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * addTimelineEvent: Safe helper that respects TIMELINE_CAP
+ * addTimelineEvent — respects TIMELINE_CAP by evicting the oldest entry.
  */
 OrderSchema.methods.addTimelineEvent = function (event, note, actor) {
   if (this.timeline.length >= TIMELINE_CAP) {
-    this.timeline.shift(); // Remove oldest entry to stay within cap
+    this.timeline.shift();
   }
   this.timeline.push({ event, note, actor, timestamp: new Date() });
 };
 
 /**
- * markAsPaid: Updates payment status and records transaction details.
+ * markAsPaid — idempotent: returns immediately if already paid.
+ * This is the canonical path for ALL payment confirmations.
  */
 OrderSchema.methods.markAsPaid = async function (transactionId, amount, provider, { session } = {}) {
+  // Idempotency guard — never double-process
   if (this.payment.status === 'paid') return this;
 
-  this.payment.status = 'paid';
+  this.payment.status        = 'paid';
   this.payment.transactionId = transactionId;
-  this.payment.method = provider;
-  this.payment.paidAt = new Date();
+  this.payment.method        = provider;
+  this.payment.paidAt        = new Date();
 
-  this.addTimelineEvent('payment_confirmed', `Payment of ${amount} received via ${provider}. Ref: ${transactionId}`);
+  this.addTimelineEvent(
+    'payment_confirmed',
+    `Payment of ${amount} received via ${provider}. Ref: ${transactionId}`
+  );
 
   return await this.save({ session });
 };
 
 /**
- * cancelOrder: Updates fulfillment status and logs the reason.
- * Note: Stock restoration is handled in the controller to maintain atomicity across models.
+ * cancelOrder — guards against re-cancelling delivered or already-cancelled orders.
+ * Stock restoration is handled in the calling controller to maintain atomicity.
  */
 OrderSchema.methods.cancelOrder = async function (reason, { session } = {}) {
   if (['delivered', 'cancelled'].includes(this.fulfillment.status)) {
@@ -138,8 +159,8 @@ OrderSchema.methods.cancelOrder = async function (reason, { session } = {}) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * createWithRetry: Generates a unique order number with a random suffix and
- * retries on collision. Resolves the race condition on orderNumber uniqueness.
+ * createWithRetry — generates a unique orderNumber with a random suffix and
+ * retries up to `retries` times on a duplicate-key collision.
  */
 OrderSchema.statics.createWithRetry = async function (orderData, session, retries = 5) {
   const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -160,15 +181,13 @@ OrderSchema.statics.createWithRetry = async function (orderData, session, retrie
 };
 
 /**
- * aggregateForTenant: Enforces clientId on all aggregate pipelines.
- * FIX 4: The pre(/^find/) hook does NOT fire on .aggregate(). Use this
- * static instead of calling Order.aggregate() directly.
+ * aggregateForTenant — prepends a $match on clientId so the tenant firewall
+ * is enforced even though pre(/^find/) does NOT fire for .aggregate() calls.
  */
 OrderSchema.statics.aggregateForTenant = function (clientId, pipeline) {
   if (!clientId) {
     throw new Error('Tenant Firewall: clientId is required for Order aggregations.');
   }
-  // Prepend a $match stage to guarantee tenant scoping
   return this.aggregate([
     { $match: { clientId } },
     ...pipeline
