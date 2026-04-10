@@ -39,14 +39,14 @@ const ProductSchema = new mongoose.Schema(
       startDate: Date,
       endDate: Date
     },
-    status: { 
-      type: String, 
-      enum: ['active', 'archived', 'draft'], 
-      default: 'active', 
-      index: true 
+    status: {
+      type: String,
+      enum: ['active', 'archived', 'draft'],
+      default: 'active',
+      index: true
     },
-    views: { type: Number, default: 0 },
-    rating: { type: Number, min: 0, max: 5, default: 0 },
+    views:   { type: Number, default: 0 },
+    rating:  { type: Number, min: 0, max: 5, default: 0 },
     reviews: { type: Number, default: 0 },
     sku: { type: String, required: true },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -54,7 +54,7 @@ const ProductSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-    toJSON: { virtuals: true },
+    toJSON:   { virtuals: true },
     toObject: { virtuals: true }
   }
 );
@@ -68,20 +68,38 @@ ProductSchema.index({ clientId: 1, sku: 1 }, { unique: true });
 
 // Merchant-scoped Slug uniqueness (only for active products)
 ProductSchema.index(
-  { clientId: 1, slug: 1 }, 
+  { clientId: 1, slug: 1 },
   { unique: true, partialFilterExpression: { status: 'active' } }
 );
+
+// =====================
+// TENANT FIREWALL
+// FIX C-8: Product had no model-level tenant firewall, unlike Order.
+// This pre-hook mirrors the one on OrderSchema: any find* query that
+// omits clientId is rejected unless the caller explicitly opts out via
+// .setOptions({ bypassTenantFirewall: true }).
+// Allowed bypasses: cron jobs, migration scripts, system-level admin ops.
+// =====================
+ProductSchema.pre(/^find/, function (next) {
+  // Allow explicit bypass for internal system operations (e.g. seeder, migrations)
+  if (this.getOptions().bypassTenantFirewall === true) return next();
+
+  const query = this.getQuery();
+  if (query.clientId === undefined) {
+    return next(new Error('Tenant Firewall: clientId is required for all Product queries.'));
+  }
+  next();
+});
 
 // =====================
 // UTILS
 // =====================
 
-const generateSlug = (name) => {
-  return name.toLowerCase().trim()
+const generateSlug = (name) =>
+  name.toLowerCase().trim()
     .replace(/[^\w\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-');
-};
 
 const validatePromotionDates = (start, end) => {
   if (start && end && new Date(end) <= new Date(start)) {
@@ -93,8 +111,8 @@ const validatePromotionDates = (start, end) => {
 // MIDDLEWARE
 // =====================
 
-ProductSchema.pre('findOneAndUpdate', function(next) {
-  const update = this.getUpdate();
+ProductSchema.pre('findOneAndUpdate', function (next) {
+  const update  = this.getUpdate();
   const options = this.getOptions();
   if (!update.$set) update.$set = {};
 
@@ -103,9 +121,13 @@ ProductSchema.pre('findOneAndUpdate', function(next) {
   const name = update.name || update.$set.name;
   if (name) update.$set.slug = generateSlug(name);
 
-  const start = update.promotion?.startDate || update.$set.promotion?.startDate || update.$set['promotion.startDate'];
-  const end = update.promotion?.endDate || update.$set.promotion?.endDate || update.$set['promotion.endDate'];
-  
+  const start = update.promotion?.startDate
+    || update.$set.promotion?.startDate
+    || update.$set['promotion.startDate'];
+  const end = update.promotion?.endDate
+    || update.$set.promotion?.endDate
+    || update.$set['promotion.endDate'];
+
   try {
     validatePromotionDates(start, end);
   } catch (err) {
@@ -117,9 +139,9 @@ ProductSchema.pre('findOneAndUpdate', function(next) {
 ProductSchema.pre('save', function (next) {
   if (this._userId) {
     if (this.isNew) this.createdBy = this._userId;
-    else this.updatedBy = this._userId;
-    // Fix 4: Set to undefined for reliable Mongoose tracking over 'delete'
-    this._userId = undefined; 
+    else            this.updatedBy = this._userId;
+    // Use undefined (not delete) so Mongoose dirty-tracking works correctly
+    this._userId = undefined;
   }
 
   try {
@@ -127,7 +149,7 @@ ProductSchema.pre('save', function (next) {
   } catch (err) {
     return next(err);
   }
-  
+
   if (this.isModified('name')) {
     this.slug = generateSlug(this.name);
   }
@@ -135,11 +157,11 @@ ProductSchema.pre('save', function (next) {
 });
 
 // =====================
-// METHODS
+// INSTANCE METHODS
 // =====================
 
 /**
- * Fix 5: Write-scoped tenant guard.
+ * incrementViews — tenant-scoped, write-safe.
  */
 ProductSchema.methods.incrementViews = async function () {
   return mongoose.model('Product').updateOne(
@@ -149,14 +171,15 @@ ProductSchema.methods.incrementViews = async function () {
 };
 
 /**
- * Fix 5: Atomic Stock Adjustment with Tenant Firewall.
+ * adjustStock — atomic stock change with floor guard.
  * Scoping by clientId prevents cross-merchant document mutation.
  */
 ProductSchema.methods.adjustStock = async function (quantity, userId = null) {
   if (quantity === 0) return this;
-  
+
   const query = { _id: this._id, clientId: this.clientId };
-  
+
+  // For decrements, ensure sufficient stock exists atomically
   if (quantity < 0) {
     query.stockQuantity = { $gte: Math.abs(quantity) };
   }
@@ -165,8 +188,8 @@ ProductSchema.methods.adjustStock = async function (quantity, userId = null) {
   if (userId) update.$set = { updatedBy: userId };
 
   const updatedDoc = await mongoose.model('Product').findOneAndUpdate(
-    query, 
-    update, 
+    query,
+    update,
     { new: true, runValidators: true }
   );
 
@@ -190,11 +213,24 @@ ProductSchema.methods.increaseStock = async function (quantity, userId = null) {
 // =====================
 
 /**
- * syncReviewStats
- * Fix 1 & 2: Defensive guards and intentional aggregate scoping.
+ * aggregateForTenant — mirrors Order.aggregateForTenant().
+ * FIX C-9 / C-10: Product.aggregate() bypasses the pre(/^find/) tenant hook.
+ * All aggregation pipelines MUST go through this wrapper.
  */
-ProductSchema.statics.syncReviewStats = async function(clientId, productId, throwOnError = false) {
-  // Guard against undefined inputs that could cause cross-tenant leaks or query failure
+ProductSchema.statics.aggregateForTenant = function (clientId, pipeline) {
+  if (!clientId) {
+    throw new Error('Tenant Firewall: clientId is required for Product aggregations.');
+  }
+  return this.aggregate([
+    { $match: { clientId } },
+    ...pipeline
+  ]);
+};
+
+/**
+ * syncReviewStats — tenant-safe aggregate for review score syncing.
+ */
+ProductSchema.statics.syncReviewStats = async function (clientId, productId, throwOnError = false) {
   if (!clientId || !productId) {
     const err = new Error('[SYNC_ERROR] Operation aborted: clientId and productId are required.');
     console.error(err.message);
@@ -204,53 +240,52 @@ ProductSchema.statics.syncReviewStats = async function(clientId, productId, thro
 
   try {
     const Review = mongoose.model('Review');
-    
-    /**
-     * NOTE: Review.aggregate() bypasses pre-hooks. 
-     * Explicit clientId in $match is the primary security boundary here.
-     */
+
+    // NOTE: Review.aggregate() bypasses pre-hooks.
+    // Explicit clientId in $match is the primary security boundary here.
     const stats = await Review.aggregate([
-      { 
-        $match: { 
-          clientId: clientId, 
-          product: new mongoose.Types.ObjectId(productId), 
-          status: 'approved' 
-        } 
+      {
+        $match: {
+          clientId,
+          product: new mongoose.Types.ObjectId(productId),
+          status:  'approved'
+        }
       },
-      { 
-        $group: { 
-          _id: '$product', 
-          avgRating: { $avg: '$rating' }, 
-          totalReviews: { $sum: 1 } 
-        } 
+      {
+        $group: {
+          _id:          '$product',
+          avgRating:    { $avg: '$rating' },
+          totalReviews: { $sum: 1 }
+        }
       }
     ]);
 
-    const update = stats.length > 0 
-      ? { 
-          rating: parseFloat(stats[0].avgRating.toFixed(1)), 
-          reviews: stats[0].totalReviews 
-        }
+    const update = stats.length > 0
+      ? { rating: parseFloat(stats[0].avgRating.toFixed(1)), reviews: stats[0].totalReviews }
       : { rating: 0, reviews: 0 };
 
     await this.findOneAndUpdate({ _id: productId, clientId }, update);
-    
+
   } catch (error) {
     console.error(`[SYNC_ENGINE_FAILURE][${productId}]:`, error.message);
-    if (throwOnError) throw error; 
+    if (throwOnError) throw error;
   }
 };
 
 /**
- * Fix 3: Read-scoped tenant guards for merchant dashboards.
+ * getLowStock / getOutOfStock — read-scoped tenant guards.
  */
 ProductSchema.statics.getLowStock = function (clientId) {
-  if (!clientId) throw new Error('[TENANT_ERROR] Operation blocked: clientId is required for stock queries.');
-  return this.find({ clientId, status: 'active', $expr: { $lte: ['$stockQuantity', '$reorderLevel'] } });
+  if (!clientId) throw new Error('[TENANT_ERROR] clientId is required for stock queries.');
+  return this.find({
+    clientId,
+    status: 'active',
+    $expr: { $lte: ['$stockQuantity', '$reorderLevel'] }
+  });
 };
 
 ProductSchema.statics.getOutOfStock = function (clientId) {
-  if (!clientId) throw new Error('[TENANT_ERROR] Operation blocked: clientId is required for stock queries.');
+  if (!clientId) throw new Error('[TENANT_ERROR] clientId is required for stock queries.');
   return this.find({ clientId, status: 'active', stockQuantity: 0 });
 };
 
