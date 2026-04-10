@@ -1,40 +1,44 @@
-const cron = require('node-cron');
+const cron     = require('node-cron');
 const mongoose = require('mongoose');
-const Order = require('../models/Order');
-const Product = require('../models/Product');
+const Order    = require('../models/Order');
+const Product  = require('../models/Product');
 
-// =====================
+// ─────────────────────────────────────────────────────────────────────────────
 // CONFIGURATION
-// =====================
-const EXPIRY_WINDOW_MS = parseInt(process.env.ORDER_EXPIRY_MS) || 2 * 60 * 60 * 1000;
-const COOLDOWN_MS = parseInt(process.env.CLEANUP_COOLDOWN_MS) || 1 * 60 * 60 * 1000;
-const BATCH_SIZE = 50;
+// ─────────────────────────────────────────────────────────────────────────────
+const EXPIRY_WINDOW_MS         = parseInt(process.env.ORDER_EXPIRY_MS)      || 2 * 60 * 60 * 1000; // 2 h
+const COOLDOWN_MS              = parseInt(process.env.CLEANUP_COOLDOWN_MS)  || 1 * 60 * 60 * 1000; // 1 h
+const BATCH_SIZE               = 50;
 const MAX_FAILURES_BEFORE_ALERT = 3;
 
-let isRunning = false;
+let isRunning          = false;
 let consecutiveFailures = 0;
 
-/**
- * performAtomicCleanup
- * Atomically restores stock and marks the order as expired.
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// performAtomicCleanup
+// Restores stock and marks the order as expired — all inside a single
+// session transaction passed in by the caller.
+// ─────────────────────────────────────────────────────────────────────────────
 const performAtomicCleanup = async (orderId, session) => {
-  // FIX 1: Use bypassTenantFirewall so the cron job (which has no clientId context)
-  // can fetch orders across all tenants safely. clientId is validated per-item below.
+  // System-level lookup: no clientId in cron context — bypass firewall.
+  // clientId is validated per-item inside the loop below.
   const order = await Order.findById(orderId)
     .session(session)
     .setOptions({ bypassTenantFirewall: true });
 
+  // Idempotency: skip if already processed or no longer pending
   if (!order || order.payment.status !== 'pending') return false;
 
-  // FIX 2: stockReserved and stockDeducted now exist on order.items (see Order.js schema).
-  // Restore stock only for items that were reserved but not yet deducted.
+  // Restore stock only for items where stock was reserved but NOT yet
+  // deducted. This is the complement of the cancelOrder path (which handles
+  // items where stockDeducted === true). Together they cover all cases
+  // without double-restoring.
   for (const item of order.items) {
     if (item.stockReserved && !item.stockDeducted) {
       await Product.updateOne(
         {
-          _id: item.product.id,
-          clientId: order.clientId // Multi-tenant guard: prevent cross-tenant stock corruption
+          _id:      item.product.id,
+          clientId: order.clientId  // per-item tenant guard prevents cross-tenant corruption
         },
         { $inc: { stockQuantity: item.quantity } },
         { session }
@@ -42,41 +46,37 @@ const performAtomicCleanup = async (orderId, session) => {
     }
   }
 
-  // FIX 3: Use addTimelineEvent() helper (which respects TIMELINE_CAP) instead of
-  // directly pushing to order.timeline — the field now exists in the schema.
-  order.addTimelineEvent(
-    'system_expiry',
-    'Inventory released: Payment window expired.'
-  );
+  order.addTimelineEvent('system_expiry', 'Inventory released: Payment window expired.');
 
-  order.payment.status = 'failed';
+  order.payment.status     = 'failed';
   order.fulfillment.status = 'cancelled';
-  order.stockReserved = false;
-  order.items.forEach(item => {
-    item.stockReserved = false;
-  });
+  order.stockReserved      = false;
+  order.items.forEach(item => { item.stockReserved = false; });
   order.lastCleanupAttempt = new Date();
 
   await order.save({ session });
   return true;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CRON JOB — runs every 30 minutes
+// ─────────────────────────────────────────────────────────────────────────────
 const startOrderExpiryJob = () => {
   cron.schedule('*/30 * * * *', async () => {
     if (isRunning) return;
     isRunning = true;
 
-    const expiryThreshold = new Date(Date.now() - EXPIRY_WINDOW_MS);
+    const expiryThreshold   = new Date(Date.now() - EXPIRY_WINDOW_MS);
     const cooldownThreshold = new Date(Date.now() - COOLDOWN_MS);
 
     let successCount = 0;
-    let failCount = 0;
+    let failCount    = 0;
 
     try {
-      // FIX 4: This is a system-level cross-tenant sweep — bypass the tenant firewall
+      // Cross-tenant sweep — explicit bypass required
       const staleOrders = await Order.find({
         'payment.status': 'pending',
-        createdAt: { $lt: expiryThreshold },
+        createdAt:        { $lt: expiryThreshold },
         $or: [
           { lastCleanupAttempt: { $exists: false } },
           { lastCleanupAttempt: { $lt: cooldownThreshold } }
@@ -108,15 +108,24 @@ const startOrderExpiryJob = () => {
           failCount++;
           console.error(`[CRON_ERR] Cleanup failed for ${orderRef._id}:`, err.message);
 
-          // Stamp lastCleanupAttempt to prevent infinite retry loops on broken orders
+          // Stamp lastCleanupAttempt to prevent infinite retry on a persistently
+          // broken order. Uses setOptions() — NOT the options argument of updateOne —
+          // so the bypass is correctly recognised by the tenant firewall plugin.
+          //
+          // FIX C-7: The original code passed { bypassTenantFirewall: true } as the
+          // third argument to updateOne(), which Mongoose treats as query options
+          // (e.g. writeConcern, session), NOT as setOptions(). The tenant firewall
+          // pre-hook reads options via this.getOptions(), which only reflects what
+          // was set through setOptions(). Passing it as a plain object is silently
+          // ignored by the hook, meaning the update would be blocked in environments
+          // where the global tenant plugin is active.
           try {
             await Order.updateOne(
               { _id: orderRef._id },
-              { $set: { lastCleanupAttempt: new Date() } },
-              { bypassTenantFirewall: true }
-            );
+              { $set: { lastCleanupAttempt: new Date() } }
+            ).setOptions({ bypassTenantFirewall: true });
           } catch (stampErr) {
-            console.error(`[CRON_ERR] Stamp failed:`, stampErr.message);
+            console.error('[CRON_ERR] Stamp failed:', stampErr.message);
           }
         } finally {
           await orderSession.endSession();
@@ -125,20 +134,23 @@ const startOrderExpiryJob = () => {
 
       console.log(JSON.stringify({
         timestamp: new Date().toISOString(),
-        context: 'ORDER_EXPIRY_JOB',
+        context:   'ORDER_EXPIRY_JOB',
         batchSize: staleOrders.length,
         succeeded: successCount,
-        failed: failCount
+        failed:    failCount
       }));
 
+      // Reset consecutive-failure counter only when the entire batch is clean
       consecutiveFailures = failCount > 0 ? consecutiveFailures + 1 : 0;
 
     } catch (error) {
       consecutiveFailures++;
-      console.error(`[CRON_FATAL]:`, error.stack);
+      console.error('[CRON_FATAL]:', error.stack);
     } finally {
       if (consecutiveFailures >= MAX_FAILURES_BEFORE_ALERT) {
-        console.error(`[CRON_ALERT] Systemic failure: ${consecutiveFailures} consecutive batches with errors.`);
+        console.error(
+          `[CRON_ALERT] Systemic failure: ${consecutiveFailures} consecutive batches with errors.`
+        );
       }
       isRunning = false;
     }
