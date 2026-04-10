@@ -2,20 +2,23 @@ const crypto   = require('crypto');
 const mongoose = require('mongoose');
 const Order    = require('../models/Order');
 
-// --- 1. CORE DB ATOMIC HELPERS ---
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. ATOMIC DB HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 
 const resolveSuccess = async (orderId, transactionId, session, clientId) => {
   if (!mongoose.isValidObjectId(orderId)) throw new Error('Invalid Order ID');
 
   const order = await Order.findOne({ _id: orderId, clientId }).session(session);
   if (!order) {
-    throw new Error(`[SECURITY] Order ${orderId} not found for tenant ${clientId}`);
+    // Do not reveal whether the order exists on another tenant — generic error
+    throw new Error('[SECURITY] Order not found for the current tenant context.');
   }
 
   return await order.markAsPaid(
     transactionId,
     order.totals.total,
-    order.payment.method || order.payment.provider || 'manual',
+    order.payment.method || 'manual',
     { session }
   );
 };
@@ -29,18 +32,27 @@ const resolveFailure = async (orderId, session, clientId, reason = 'Payment Fail
   }
 };
 
-// --- 2. SIGNATURE VERIFICATION ---
-/**
- * Verifies gateway webhook signatures using the raw request body buffer.
- * Re-stringifying req.body (JSON.stringify) produces a different byte sequence
- * because key ordering, whitespace, and unicode handling can differ — always use
- * the original buffer that the gateway actually signed.
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. SIGNATURE VERIFICATION
+//
+// FIX C-5: The original code looked up secrets using the pattern
+//   process.env[`${provider.toUpperCase()}_SECRET_KEY`]
+// but all other webhook handlers in controllers/payments.js use
+//   process.env[`${provider.toUpperCase()}_WEBHOOK_SECRET`]
+// The mismatch meant this generic handler would NEVER find its secret key and
+// would reject every webhook with 401. Now using the consistent *_WEBHOOK_SECRET
+// pattern. Ensure .env contains: PAYSTACK_WEBHOOK_SECRET, YOCO_WEBHOOK_SECRET, etc.
+//
+// Always uses req.rawBody (Buffer) — never re-stringified JSON.
+// ─────────────────────────────────────────────────────────────────────────────
 const verifyGatewaySignature = (provider, rawBody, headers) => {
-  const secret = process.env[`${provider.toUpperCase()}_SECRET_KEY`];
+  // FIX C-5: use *_WEBHOOK_SECRET naming, consistent with payments.js
+  const secret = process.env[`${provider.toUpperCase()}_WEBHOOK_SECRET`];
   if (!secret) return false;
 
-  const signature = headers['x-webhook-signature'] || headers['x-paystack-signature'];
+  const signature = headers['x-webhook-signature']
+    || headers['x-paystack-signature']
+    || headers['x-yoco-signature'];
   if (!signature) return false;
 
   const hash = crypto.createHmac('sha512', secret)
@@ -54,14 +66,18 @@ const verifyGatewaySignature = (provider, rawBody, headers) => {
   }
 };
 
-// --- 3. WEBHOOK ENTRY POINT ---
-
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. GENERIC WEBHOOK ENTRY POINT
+// Handles all providers via /api/v1/checkout/webhook/:provider
+// ─────────────────────────────────────────────────────────────────────────────
 exports.handleWebhook = async (req, res) => {
   const { provider } = req.params;
   const session = await mongoose.startSession();
 
   try {
-    if (!verifyGatewaySignature(provider, req.body, req.headers)) {
+    // req.body is still the raw Buffer here because server.js applies
+    // express.raw() before express.json() for this path.
+    if (!verifyGatewaySignature(provider, req.rawBody, req.headers)) {
       console.warn(JSON.stringify({
         type:     'WEBHOOK_INVALID_SIGNATURE',
         provider,
@@ -70,7 +86,7 @@ exports.handleWebhook = async (req, res) => {
       return res.status(401).send('Unauthorized');
     }
 
-    const payload = JSON.parse(req.body.toString());
+    const payload = JSON.parse(req.rawBody.toString());
 
     await session.withTransaction(async () => {
       const clientId = payload.metadata?.clientId;
@@ -98,29 +114,40 @@ exports.handleWebhook = async (req, res) => {
       type:     'WEBHOOK_FAILURE',
       provider,
       clientId: (() => {
-        try { return JSON.parse(req.body.toString())?.metadata?.clientId; }
+        try { return JSON.parse(req.rawBody.toString())?.metadata?.clientId; }
         catch { return 'unknown'; }
       })(),
       error: error.message
     }));
     res.status(500).send('Internal Error');
   } finally {
-    session.endSession();
+    // FIX C-6: endSession was not awaited — can leak MongoDB sessions under load
+    await session.endSession();
   }
 };
 
-// --- 4. MANUAL PAYMENT CONFIRMATION ---
-
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. MANUAL PAYMENT CONFIRMATION
+// FIX M-2: orderId and reference are validated for presence before use.
+// Previously, undefined orderId was silently passed to resolveSuccess which
+// threw a misleading 'Invalid Order ID' error with no user-facing explanation.
+// ─────────────────────────────────────────────────────────────────────────────
 exports.confirmManualPayment = async (req, res) => {
-  // FIX: both 'admin' and 'owner' roles should be able to confirm manual payments
   if (!req.user || !['admin', 'owner'].includes(req.user.role)) {
-    return res.status(403).json({ message: 'Forbidden' });
+    return res.status(403).json({ success: false, message: 'Forbidden' });
   }
 
   const { orderId, reference, provider = 'EFT' } = req.body;
   const clientId = req.clientId;
-  const session  = await mongoose.startSession();
 
+  // FIX M-2: explicit presence validation before touching the DB
+  if (!orderId)    return res.status(400).json({ success: false, message: 'orderId is required' });
+  if (!reference)  return res.status(400).json({ success: false, message: 'reference is required' });
+  if (!mongoose.isValidObjectId(orderId)) {
+    return res.status(400).json({ success: false, message: 'Invalid orderId format' });
+  }
+
+  const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
       await resolveSuccess(orderId, `${provider}-${reference}`, session, clientId);
