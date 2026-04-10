@@ -1,10 +1,10 @@
-const Order = require('../models/Order');
-const Product = require('../models/Product');
+const Order    = require('../models/Order');
+const Product  = require('../models/Product');
 const Customer = require('../models/Customer');
 
-// ==========================================
-// 1. PRIVATE HELPERS
-// ==========================================
+// ─────────────────────────────────────────────────────────────────────────────
+// PRIVATE HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 
 const _ensureTenant = (req) => {
   if (!req.clientId) {
@@ -14,18 +14,16 @@ const _ensureTenant = (req) => {
   }
 };
 
-// ==========================================
-// 2. EXPORTED ANALYTICS ACTIONS
-// ==========================================
-
-/**
- * getDashboardOverview: High-level store performance stats.
- * FIX: Uses Order.aggregateForTenant() to enforce clientId on all aggregations.
- * (Order.aggregate() bypasses the pre(/^find/) tenant firewall hook.)
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// DASHBOARD OVERVIEW
+// FIX C-9: inventoryValue was computed via Product.aggregate() directly,
+// bypassing the tenant firewall. Now uses Product.aggregateForTenant() which
+// prepends a mandatory $match on clientId — same pattern as Order.aggregateForTenant().
+// ─────────────────────────────────────────────────────────────────────────────
 exports.getDashboardOverview = async (req, res) => {
   try {
     _ensureTenant(req);
+
     const { startDate, endDate } = req.query;
 
     const start = startDate && !isNaN(Date.parse(startDate))
@@ -39,7 +37,7 @@ exports.getDashboardOverview = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Date range cannot exceed 1 year' });
     }
 
-    // FIX: aggregateForTenant prepends a $match on clientId automatically
+    // Order revenue aggregation — tenant-scoped
     const stats = await Order.aggregateForTenant(req.clientId, [
       {
         $match: {
@@ -49,43 +47,54 @@ exports.getDashboardOverview = async (req, res) => {
       },
       {
         $group: {
-          _id: null,
-          totalRevenue: { $sum: '$totals.total' },
-          totalTax: { $sum: '$totals.tax' },
+          _id:           null,
+          totalRevenue:  { $sum: '$totals.total' },
+          totalTax:      { $sum: '$totals.tax' },
           totalShipping: { $sum: '$totals.shipping' },
-          totalOrders: { $sum: 1 },
+          totalOrders:   { $sum: 1 },
           avgOrderValue: { $avg: '$totals.total' }
         }
       },
       {
         $project: {
-          _id: 0,
-          totalRevenue: { $round: ['$totalRevenue', 2] },
-          totalTax: { $round: ['$totalTax', 2] },
+          _id:           0,
+          totalRevenue:  { $round: ['$totalRevenue',  2] },
+          totalTax:      { $round: ['$totalTax',      2] },
           totalShipping: { $round: ['$totalShipping', 2] },
-          totalOrders: 1,
+          totalOrders:   1,
           avgOrderValue: { $round: ['$avgOrderValue', 2] }
         }
       }
     ]);
 
     const activeCustomers = await Customer.countDocuments({
-      clientId: req.clientId,
+      clientId:      req.clientId,
       accountStatus: 'active'
     });
 
-    const inventoryValue = await Product.aggregate([
-      { $match: { clientId: req.clientId, status: 'active' } },
-      { $group: { _id: null, totalValue: { $sum: { $multiply: ['$price', '$stockQuantity'] } } } }
+    // FIX C-9: use Product.aggregateForTenant() — not Product.aggregate() —
+    // so the tenant $match is enforced at the model level, not just inline.
+    const inventoryResult = await Product.aggregateForTenant(req.clientId, [
+      {
+        $match: { status: 'active' }
+        // Note: aggregateForTenant already prepends { $match: { clientId } }
+        // so this $match only adds the status filter on top.
+      },
+      {
+        $group: {
+          _id:        null,
+          totalValue: { $sum: { $multiply: ['$price', '$stockQuantity'] } }
+        }
+      }
     ]);
 
     res.json({
       success: true,
       data: {
         revenue: stats[0] || { totalRevenue: 0, totalTax: 0, totalOrders: 0, avgOrderValue: 0 },
-        customers: activeCustomers,
-        inventoryValue: inventoryValue[0]?.totalValue || 0,
-        dateRange: { start, end }
+        customers:      activeCustomers,
+        inventoryValue: inventoryResult[0]?.totalValue || 0,
+        dateRange:      { start, end }
       }
     });
   } catch (error) {
@@ -94,9 +103,13 @@ exports.getDashboardOverview = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SALES OVER TIME (last 30 days)
+// ─────────────────────────────────────────────────────────────────────────────
 exports.getSalesOverTime = async (req, res) => {
   try {
     _ensureTenant(req);
+
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -104,17 +117,17 @@ exports.getSalesOverTime = async (req, res) => {
       {
         $match: {
           'payment.status': 'paid',
-          createdAt: { $gte: thirtyDaysAgo }
+          createdAt:        { $gte: thirtyDaysAgo }
         }
       },
       {
         $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-          revenue: { $sum: '$totals.total' },
+          _id:        { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          revenue:    { $sum: '$totals.total' },
           orderCount: { $sum: 1 }
         }
       },
-      { $sort: { '_id': 1 } }
+      { $sort: { _id: 1 } }
     ]);
 
     res.status(200).json({ success: true, data: salesData });
@@ -123,6 +136,9 @@ exports.getSalesOverTime = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TOP PRODUCTS
+// ─────────────────────────────────────────────────────────────────────────────
 exports.getTopProducts = async (req, res) => {
   try {
     _ensureTenant(req);
@@ -133,9 +149,9 @@ exports.getTopProducts = async (req, res) => {
       { $unwind: '$items' },
       {
         $group: {
-          _id: '$items.product.id',
-          name: { $first: '$items.product.name' },
-          unitsSold: { $sum: '$items.quantity' },
+          _id:              '$items.product.id',
+          name:             { $first: '$items.product.name' },
+          unitsSold:        { $sum: '$items.quantity' },
           revenueGenerated: { $sum: '$items.subtotal' }
         }
       },
@@ -149,6 +165,9 @@ exports.getTopProducts = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TOP CUSTOMERS
+// ─────────────────────────────────────────────────────────────────────────────
 exports.getTopCustomers = async (req, res) => {
   try {
     _ensureTenant(req);
@@ -157,8 +176,8 @@ exports.getTopCustomers = async (req, res) => {
       { $match: { 'payment.status': 'paid' } },
       {
         $group: {
-          _id: '$customer.email',
-          name: { $first: '$customer.name' },
+          _id:        '$customer.email',
+          name:       { $first: '$customer.name' },
           totalSpent: { $sum: '$totals.total' },
           orderCount: { $sum: 1 }
         }
@@ -173,10 +192,14 @@ exports.getTopCustomers = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// REVENUE CHART
+// ─────────────────────────────────────────────────────────────────────────────
 exports.getRevenueChart = async (req, res) => {
   try {
     _ensureTenant(req);
-    const days = Math.min(parseInt(req.query.days) || 7, 90);
+    // Cap at 90 days to prevent full-collection scans
+    const days      = Math.min(parseInt(req.query.days) || 7, 90);
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
@@ -184,17 +207,17 @@ exports.getRevenueChart = async (req, res) => {
       {
         $match: {
           'payment.status': 'paid',
-          createdAt: { $gte: startDate }
+          createdAt:        { $gte: startDate }
         }
       },
       {
         $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          _id:    { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
           revenue: { $sum: '$totals.total' },
-          orders: { $sum: 1 }
+          orders:  { $sum: 1 }
         }
       },
-      { $sort: { '_id': 1 } }
+      { $sort: { _id: 1 } }
     ]);
 
     res.json({ success: true, data: chartData });
