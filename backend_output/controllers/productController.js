@@ -1,13 +1,13 @@
-const Product = require('../models/Product');
+const Product  = require('../models/Product');
 const mongoose = require('mongoose');
 
-// =====================
-// PUBLIC METHODS
-// =====================
+// ─────────────────────────────────────────────────────────────────────────────
+// PUBLIC — STOREFRONT
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * @desc    Get all products (Storefront) with ReDoS protection & Pagination
- * @route   GET /api/products
+ * @desc  Get all active products with ReDoS protection + pagination
+ * @route GET /api/v1/products
  */
 exports.getProducts = async (req, res) => {
   try {
@@ -17,12 +17,12 @@ exports.getProducts = async (req, res) => {
     const safePage  = Math.max(parseInt(page)  || 1,  1);
     const skip      = (safePage - 1) * safeLimit;
 
-    let query = { clientId: req.clientId, status: 'active' };
+    const query = { clientId: req.clientId, status: 'active' };
 
     if (category) query.category = category;
 
     if (search) {
-      // ReDoS protection — escape special regex characters before passing user input
+      // Escape special regex chars to prevent ReDoS
       const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       query.$or = [
         { name:        { $regex: escapedSearch, $options: 'i' } },
@@ -43,10 +43,10 @@ exports.getProducts = async (req, res) => {
 
     res.json({
       success: true,
-      count: products.length,
+      count:   products.length,
       total,
       pagination: { currentPage: safePage, totalPages: Math.ceil(total / safeLimit) },
-      data: products
+      data:    products
     });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to retrieve products' });
@@ -54,8 +54,8 @@ exports.getProducts = async (req, res) => {
 };
 
 /**
- * @desc    Get single product by ID
- * @route   GET /api/products/:id
+ * @desc  Get single product by ID
+ * @route GET /api/v1/products/:id
  */
 exports.getProduct = async (req, res) => {
   try {
@@ -68,8 +68,8 @@ exports.getProduct = async (req, res) => {
 };
 
 /**
- * @desc    Get single product by Slug
- * @route   GET /api/products/slug/:slug
+ * @desc  Get single product by slug
+ * @route GET /api/v1/products/slug/:slug
  */
 exports.getProductBySlug = async (req, res) => {
   try {
@@ -82,13 +82,13 @@ exports.getProductBySlug = async (req, res) => {
 };
 
 /**
- * @desc    Get featured products for storefront hero/carousel
- * @route   GET /api/products/featured
+ * @desc  Get featured products for storefront hero/carousel
+ * @route GET /api/v1/products/featured
  */
 exports.getFeaturedProducts = async (req, res) => {
   try {
     const safeLimit = Math.min(parseInt(req.query.limit) || 8, 20);
-    const products = await Product.find({
+    const products  = await Product.find({
       clientId:   req.clientId,
       status:     'active',
       isFeatured: true
@@ -103,8 +103,8 @@ exports.getFeaturedProducts = async (req, res) => {
 };
 
 /**
- * @desc    Get distinct product categories for storefront filters
- * @route   GET /api/products/categories
+ * @desc  Distinct product categories for storefront filters
+ * @route GET /api/v1/products/categories
  */
 exports.getCategories = async (req, res) => {
   try {
@@ -113,7 +113,6 @@ exports.getCategories = async (req, res) => {
       status:   'active',
       category: { $exists: true, $nin: [null, ''] }
     });
-
     res.json({ success: true, data: categories.sort() });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to retrieve categories' });
@@ -121,8 +120,8 @@ exports.getCategories = async (req, res) => {
 };
 
 /**
- * @desc    Check product availability (optimised single $in query)
- * @route   POST /api/products/check-availability
+ * @desc  Check availability for cart items (optimised single $in query)
+ * @route POST /api/v1/products/check-availability
  */
 exports.checkAvailability = async (req, res) => {
   try {
@@ -156,13 +155,13 @@ exports.checkAvailability = async (req, res) => {
   }
 };
 
-// =====================
-// ADMIN METHODS
-// =====================
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN / DASHBOARD
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * @desc    Create product with mass-assignment protection
- * @route   POST /api/products
+ * @desc  Create product with mass-assignment protection
+ * @route POST /api/v1/products
  */
 exports.createProduct = async (req, res) => {
   try {
@@ -178,7 +177,7 @@ exports.createProduct = async (req, res) => {
       status:     status     || 'active',
       isFeatured: isFeatured || false,
       images:     images     || [],
-      clientId:   req.clientId
+      clientId:   req.clientId   // never from body
     });
 
     res.status(201).json({ success: true, data: product });
@@ -192,13 +191,13 @@ exports.createProduct = async (req, res) => {
 };
 
 /**
- * @desc    Update product with tenant boundary check
- * @route   PUT /api/products/:id
+ * @desc  Update product with tenant boundary check and mass-assignment protection
+ * @route PUT /api/v1/products/:id
  */
 exports.updateProduct = async (req, res) => {
   try {
     const allowedUpdates = ['name', 'description', 'price', 'category', 'status', 'isFeatured', 'images', 'tags', 'stockQuantity'];
-    const updateData = {};
+    const updateData     = {};
     Object.keys(req.body).forEach(key => {
       if (allowedUpdates.includes(key)) updateData[key] = req.body[key];
     });
@@ -217,8 +216,8 @@ exports.updateProduct = async (req, res) => {
 };
 
 /**
- * @desc    Update stock directly with floor guard
- * @route   PUT /api/products/:id/stock
+ * @desc  Set stock level directly (floor guard: no negatives)
+ * @route PUT /api/v1/products/:id/stock
  */
 exports.updateStock = async (req, res) => {
   try {
@@ -242,8 +241,8 @@ exports.updateStock = async (req, res) => {
 };
 
 /**
- * @desc    Bulk update products with transaction atomicity
- * @route   PUT /api/products/bulk/update
+ * @desc  Bulk update products atomically
+ * @route PUT /api/v1/products/bulk/update
  */
 exports.bulkUpdateProducts = async (req, res) => {
   const { updates } = req.body; // [{ id, data }]
@@ -293,8 +292,8 @@ exports.bulkUpdateProducts = async (req, res) => {
 };
 
 /**
- * @desc    Delete product (tenant-scoped)
- * @route   DELETE /api/products/:id
+ * @desc  Delete product (tenant-scoped)
+ * @route DELETE /api/v1/products/:id
  */
 exports.deleteProduct = async (req, res) => {
   try {
@@ -306,24 +305,36 @@ exports.deleteProduct = async (req, res) => {
   }
 };
 
-// =====================
+// ─────────────────────────────────────────────────────────────────────────────
 // ANALYTICS & REPORTS
-// =====================
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * @desc    Inventory health metrics (total, out-of-stock, low-stock, value)
- * @route   GET /api/products/reports/stats  (used by admin dashboard)
+ * @desc  Inventory health metrics: total, out-of-stock, low-stock, value
+ * @route GET /api/v1/products/reports/stats
+ *
+ * FIX C-10: Was calling Product.aggregate() directly, bypassing the tenant
+ * firewall entirely. Now uses Product.aggregateForTenant() which prepends
+ * a mandatory $match on clientId — identical pattern to Order.aggregateForTenant().
  */
 exports.getProductStats = async (req, res) => {
   try {
-    const stats = await Product.aggregate([
-      { $match: { clientId: req.clientId } },
+    // FIX C-10: use aggregateForTenant wrapper — never call .aggregate() directly
+    const stats = await Product.aggregateForTenant(req.clientId, [
       {
         $group: {
           _id:            null,
           totalProducts:  { $sum: 1 },
           outOfStock:     { $sum: { $cond: [{ $lte: ['$stockQuantity', 0] }, 1, 0] } },
-          lowStock:       { $sum: { $cond: [{ $and: [{ $gt: ['$stockQuantity', 0] }, { $lte: ['$stockQuantity', 5] }] }, 1, 0] } },
+          lowStock: {
+            $sum: {
+              $cond: [
+                { $and: [{ $gt: ['$stockQuantity', 0] }, { $lte: ['$stockQuantity', 5] }] },
+                1,
+                0
+              ]
+            }
+          },
           inventoryValue: { $sum: { $multiply: ['$price', '$stockQuantity'] } }
         }
       }
@@ -331,7 +342,7 @@ exports.getProductStats = async (req, res) => {
 
     res.json({
       success: true,
-      data: stats[0] || { totalProducts: 0, outOfStock: 0, lowStock: 0, inventoryValue: 0 }
+      data:    stats[0] || { totalProducts: 0, outOfStock: 0, lowStock: 0, inventoryValue: 0 }
     });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Stats retrieval failed' });
@@ -339,8 +350,8 @@ exports.getProductStats = async (req, res) => {
 };
 
 /**
- * @desc    Products at or below reorder level
- * @route   GET /api/products/reports/low-stock
+ * @desc  Products at or below reorder level
+ * @route GET /api/v1/products/reports/low-stock
  */
 exports.getLowStockProducts = async (req, res) => {
   try {
@@ -352,8 +363,8 @@ exports.getLowStockProducts = async (req, res) => {
 };
 
 /**
- * @desc    Products with zero stock
- * @route   GET /api/products/reports/out-of-stock
+ * @desc  Products with zero stock
+ * @route GET /api/v1/products/reports/out-of-stock
  */
 exports.getOutOfStockProducts = async (req, res) => {
   try {
