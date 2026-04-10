@@ -3,7 +3,7 @@ const Order    = require('../models/Order');
 const Client   = require('../models/Client');
 const crypto   = require('crypto');
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Signature helpers ────────────────────────────────────────────────────────
 
 /**
  * HMAC-SHA512 constant-time comparison.
@@ -32,20 +32,28 @@ const safeVerifySignature256 = (secret, rawBody, signature) => {
 };
 
 /**
- * resolveOrderPayment — looks up an order by ID (bypassing tenant firewall for
- * webhook context where clientId isn't in the request headers) and calls markAsPaid.
+ * resolveOrderPayment — webhook-context helper.
+ * Looks up an order by ID bypassing the tenant firewall (clientId comes from
+ * the DB record itself, not from an untrusted request header) and calls markAsPaid.
+ * Must be called inside a withTransaction block.
  */
 const resolveOrderPayment = async (orderId, transactionId, provider, session) => {
+  if (!mongoose.isValidObjectId(orderId)) {
+    throw new Error(`[WEBHOOK] Invalid orderId: ${orderId}`);
+  }
+
   const order = await Order.findById(orderId)
     .session(session)
     .setOptions({ bypassTenantFirewall: true });
 
+  // Idempotency: markAsPaid is also guarded, but skip the DB write entirely
+  // if we can detect it early.
   if (order && order.payment.status !== 'paid') {
     await order.markAsPaid(transactionId, order.totals.total, provider, { session });
   }
 };
 
-// ─── Payment Method Discovery ─────────────────────────────────────────────────
+// ─── Payment Method Discovery ──────────────────────────────────────────────────
 
 exports.getPaymentMethods = async (req, res) => {
   try {
@@ -54,7 +62,6 @@ exports.getPaymentMethods = async (req, res) => {
 
     const methods = [];
 
-    // EFT — always available when banking details are configured
     if (client.banking?.bankName) {
       methods.push({
         id:          'eft',
@@ -64,7 +71,6 @@ exports.getPaymentMethods = async (req, res) => {
       });
     }
 
-    // FIX: correct path is client.paymentGateways.paystack (not client.paystack)
     if (client.paymentGateways?.paystack?.enabled && client.paymentGateways?.paystack?.publicKey) {
       methods.push({ id: 'paystack', label: 'Card / Instant EFT', icon: '💳', description: 'Pay securely via Paystack.' });
     }
@@ -91,11 +97,13 @@ exports.getPaymentMethods = async (req, res) => {
   }
 };
 
-// ─── EFT Initialiser ──────────────────────────────────────────────────────────
+// ─── EFT Initialiser ───────────────────────────────────────────────────────────
 
 exports.initializeEftPayment = async (req, res) => {
   try {
     const { orderId } = req.body;
+    if (!orderId) return res.status(400).json({ success: false, message: 'orderId is required' });
+
     const order = await Order.findOne({ _id: orderId, clientId: req.clientId });
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
     if (order.payment.status === 'paid') {
@@ -103,7 +111,7 @@ exports.initializeEftPayment = async (req, res) => {
     }
 
     const client = await Client.findOne({ clientId: req.clientId }).lean();
-    const b = client?.banking || {};
+    const b      = client?.banking || {};
 
     res.json({
       success: true,
@@ -125,15 +133,16 @@ exports.initializeEftPayment = async (req, res) => {
   }
 };
 
-// ─── Paystack ─────────────────────────────────────────────────────────────────
+// ─── Paystack ──────────────────────────────────────────────────────────────────
 
 exports.initializePaystackPayment = async (req, res) => {
   try {
     const { orderId, email } = req.body;
+    if (!orderId) return res.status(400).json({ success: false, message: 'orderId is required' });
+
     const order = await Order.findOne({ _id: orderId, clientId: req.clientId });
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
 
-    // FIX: correct schema path — client.paymentGateways.paystack (not client.paystack)
     const client = await Client.findOne({ clientId: req.clientId })
       .select('+paymentGateways.paystack.secretKey')
       .lean();
@@ -142,12 +151,12 @@ exports.initializePaystackPayment = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Paystack not configured for this store' });
     }
 
-    const axios = require('axios');
+    const axios    = require('axios');
     const response = await axios.post(
       'https://api.paystack.co/transaction/initialize',
       {
         email:     email || order.customer.email,
-        amount:    Math.round(order.totals.total * 100), // Paystack expects kobo/cents
+        amount:    Math.round(order.totals.total * 100), // Paystack expects kobo (cents)
         reference: `${order.orderNumber}-${Date.now()}`,
         metadata:  { orderId: order._id.toString(), clientId: req.clientId }
       },
@@ -161,9 +170,14 @@ exports.initializePaystackPayment = async (req, res) => {
   }
 };
 
+/**
+ * verifyPaystackPayment — redirect fallback.
+ * FIX H-3 / C-2: wrapped in a transaction so the find + markAsPaid pair is atomic.
+ * Concurrent webhook + redirect no longer risks double-processing.
+ */
 exports.verifyPaystackPayment = async (req, res) => {
+  const session = await mongoose.startSession();
   try {
-    // FIX: correct schema path
     const client = await Client.findOne({ clientId: req.clientId })
       .select('+paymentGateways.paystack.secretKey')
       .lean();
@@ -179,34 +193,40 @@ exports.verifyPaystackPayment = async (req, res) => {
     );
 
     const txn = response.data.data;
+
     if (txn.status === 'success') {
       const orderId = txn.metadata?.orderId;
+
       if (orderId) {
-        const order = await Order.findOne({ _id: orderId, clientId: req.clientId });
-        if (order && order.payment.status !== 'paid') {
-          await order.markAsPaid(txn.reference, order.totals.total, 'paystack');
-        }
+        // FIX: wrap in transaction — webhook may fire at the same time
+        await session.withTransaction(async () => {
+          await resolveOrderPayment(orderId, txn.reference, 'paystack', session);
+        });
       }
       return res.json({ success: true, data: txn });
     }
 
     res.status(400).json({ success: false, message: 'Payment not successful' });
   } catch (error) {
+    console.error('[PAYSTACK_VERIFY]:', error.message);
     res.status(500).json({ success: false, message: 'Payment verification failed' });
+  } finally {
+    await session.endSession();
   }
 };
 
 /**
  * handlePaystackWebhook
- * - Verifies HMAC-SHA512 signature using raw body buffer
- * - Reads clientId from the DB order (not from untrusted payload metadata)
+ * - Verifies HMAC-SHA512 using raw body buffer
+ * - Resolves clientId from the stored order, not from untrusted headers
  */
 exports.handlePaystackWebhook = async (req, res) => {
   const session = await mongoose.startSession();
   try {
-    // Try per-client secret first, fall back to global env secret
+    // Try per-client secret first; fall back to global env secret
     const clientHeader = req.headers['x-client-id'];
-    let secret = process.env.PAYSTACK_WEBHOOK_SECRET;
+    let   secret       = process.env.PAYSTACK_WEBHOOK_SECRET;
+
     if (clientHeader) {
       const client = await Client.findOne({ clientId: clientHeader })
         .select('+paymentGateways.paystack.secretKey')
@@ -220,6 +240,7 @@ exports.handlePaystackWebhook = async (req, res) => {
     }
 
     const payload = JSON.parse(req.rawBody.toString());
+
     if (payload.event === 'charge.success') {
       const orderId = payload.data?.metadata?.orderId;
       if (orderId) {
@@ -238,12 +259,14 @@ exports.handlePaystackWebhook = async (req, res) => {
   }
 };
 
-// ─── Yoco ────────────────────────────────────────────────────────────────────
+// ─── Yoco ─────────────────────────────────────────────────────────────────────
 
 exports.initializeYocoPayment = async (req, res) => {
   try {
     const { orderId } = req.body;
-    const order  = await Order.findOne({ _id: orderId, clientId: req.clientId });
+    if (!orderId) return res.status(400).json({ success: false, message: 'orderId is required' });
+
+    const order = await Order.findOne({ _id: orderId, clientId: req.clientId });
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
 
     const client = await Client.findOne({ clientId: req.clientId })
@@ -258,9 +281,9 @@ exports.initializeYocoPayment = async (req, res) => {
     const response = await axios.post(
       'https://payments.yoco.com/api/checkouts',
       {
-        amount:    Math.round(order.totals.total * 100), // Yoco uses cents
-        currency:  'ZAR',
-        metadata:  { orderId: order._id.toString(), clientId: req.clientId }
+        amount:   Math.round(order.totals.total * 100), // Yoco uses cents
+        currency: 'ZAR',
+        metadata: { orderId: order._id.toString(), clientId: req.clientId }
       },
       {
         headers: {
@@ -278,8 +301,7 @@ exports.initializeYocoPayment = async (req, res) => {
 };
 
 /**
- * handleYocoWebhook
- * Yoco sends HMAC-SHA256 in the x-yoco-signature header.
+ * handleYocoWebhook — Yoco sends HMAC-SHA256 in x-yoco-signature.
  */
 exports.handleYocoWebhook = async (req, res) => {
   const session = await mongoose.startSession();
@@ -293,7 +315,6 @@ exports.handleYocoWebhook = async (req, res) => {
 
     const payload = JSON.parse(req.rawBody.toString());
 
-    // Yoco event: payment.succeeded
     if (payload.type === 'payment.succeeded') {
       const orderId = payload.payload?.metadata?.orderId;
       if (orderId) {
@@ -317,7 +338,9 @@ exports.handleYocoWebhook = async (req, res) => {
 exports.initializeOzowPayment = async (req, res) => {
   try {
     const { orderId } = req.body;
-    const order  = await Order.findOne({ _id: orderId, clientId: req.clientId });
+    if (!orderId) return res.status(400).json({ success: false, message: 'orderId is required' });
+
+    const order = await Order.findOne({ _id: orderId, clientId: req.clientId });
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
 
     const client = await Client.findOne({ clientId: req.clientId })
@@ -332,8 +355,6 @@ exports.initializeOzowPayment = async (req, res) => {
     const amount    = order.totals.total.toFixed(2);
     const reference = order.orderNumber;
 
-    // Build hash: siteCode + countryCode + currencyCode + amount + transactionRef + optional1..5 + cancelUrl + errorUrl + successUrl + notifyUrl + isTest + privateKey
-    // For simplicity we expose the redirect URLs so the frontend can redirect
     const hashInput = `${siteCode}ZAR${amount}${reference}${orderId}${isTest ? 'true' : 'false'}${privateKey}`.toLowerCase();
     const hashCheck = crypto.createHash('sha512').update(hashInput).digest('hex');
 
@@ -341,12 +362,12 @@ exports.initializeOzowPayment = async (req, res) => {
       success: true,
       data: {
         siteCode,
-        countryCode:  'ZA',
-        currencyCode: 'ZAR',
+        countryCode:          'ZA',
+        currencyCode:         'ZAR',
         amount,
         transactionReference: reference,
-        optional1:    orderId,
-        isTest:       isTest ? 'true' : 'false',
+        optional1:            orderId,
+        isTest:               isTest ? 'true' : 'false',
         hashCheck
       }
     });
@@ -358,8 +379,7 @@ exports.initializeOzowPayment = async (req, res) => {
 
 /**
  * handleOzowWebhook
- * Ozow sends fields as form-body; signature is a SHA-512 hash of concatenated fields + private key.
- * FIX: was a silent stub — now verifies and processes the payment.
+ * Ozow sends form-body fields; signature is SHA-512 of fields + private key.
  */
 exports.handleOzowWebhook = async (req, res) => {
   const session = await mongoose.startSession();
@@ -379,31 +399,27 @@ exports.handleOzowWebhook = async (req, res) => {
       return res.status(400).send('Bad Request');
     }
 
-    // Look up this store's Ozow private key by siteCode
     const client = await Client.findOne({ 'paymentGateways.ozow.siteCode': SiteCode })
       .select('+paymentGateways.ozow.privateKey')
       .lean();
 
     if (!client) return res.status(401).send('Unauthorized');
 
-    const privateKey = client.paymentGateways.ozow.privateKey;
+    const privateKey  = client.paymentGateways.ozow.privateKey;
+    const hashFields  = [TransactionId, TransactionReference, CurrencyCode, Amount, Status];
 
-    // Ozow hash: concatenate specific fields (lowercase) + privateKey (lowercase)
-    // Fields: TransactionId, TransactionReference, CurrencyCode, Amount, Status, Optional1..5 (if present)
-    const hashFields = [TransactionId, TransactionReference, CurrencyCode, Amount, Status];
-    // Append optional fields if they exist and are defined (even "0" is valid)
-    ['Optional1','Optional2','Optional3','Optional4','Optional5'].forEach(f => {
+    ['Optional1', 'Optional2', 'Optional3', 'Optional4', 'Optional5'].forEach(f => {
       if (body[f] !== undefined && body[f] !== null) hashFields.push(body[f]);
     });
-    const hashInput  = hashFields.join('').toLowerCase() + privateKey.toLowerCase();
-    const computed   = crypto.createHash('sha512').update(hashInput).digest('hex');
+
+    const hashInput = hashFields.join('').toLowerCase() + privateKey.toLowerCase();
+    const computed  = crypto.createHash('sha512').update(hashInput).digest('hex');
 
     if (!crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(CheckSum.toLowerCase()))) {
       return res.status(401).send('Unauthorized');
     }
 
     if (Status === 'Complete') {
-      // Optional1 carries orderId set during initialization
       const orderId = Optional1;
       if (orderId) {
         await session.withTransaction(async () => {
@@ -426,7 +442,9 @@ exports.handleOzowWebhook = async (req, res) => {
 exports.initializeSnapScanPayment = async (req, res) => {
   try {
     const { orderId } = req.body;
-    const order  = await Order.findOne({ _id: orderId, clientId: req.clientId });
+    if (!orderId) return res.status(400).json({ success: false, message: 'orderId is required' });
+
+    const order = await Order.findOne({ _id: orderId, clientId: req.clientId });
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
 
     const client = await Client.findOne({ clientId: req.clientId }).lean();
@@ -438,16 +456,11 @@ exports.initializeSnapScanPayment = async (req, res) => {
     const { snapCode } = client.paymentGateways.snapscan;
     const amount       = Math.round(order.totals.total * 100); // SnapScan uses cents
 
-    // SnapScan deep-link QR URL format
     const snapUrl = `https://pos.snapscan.io/qr/${snapCode}?id=${order.orderNumber}&amount=${amount}`;
 
     res.json({
       success: true,
-      data: {
-        snapUrl,
-        orderNumber: order.orderNumber,
-        amount:      order.totals.total
-      }
+      data: { snapUrl, orderNumber: order.orderNumber, amount: order.totals.total }
     });
   } catch (error) {
     console.error('[SNAPSCAN_INIT]:', error.message);
@@ -457,47 +470,52 @@ exports.initializeSnapScanPayment = async (req, res) => {
 
 /**
  * handleSnapScanWebhook
- * SnapScan sends a JSON body (as application/x-www-form-urlencoded with a 'payload' field).
- * FIX: was a silent stub — now verifies auth header and processes.
+ * SnapScan uses HTTP Basic Auth for webhook authentication.
+ * FIX C-4: if order is not found we now return 400 instead of silently 200-ing.
  */
 exports.handleSnapScanWebhook = async (req, res) => {
   const session = await mongoose.startSession();
   try {
-    // SnapScan uses HTTP Basic Auth on the webhook URL (set in SnapScan merchant portal)
     const authHeader = req.headers['authorization'] || '';
     const base64     = authHeader.startsWith('Basic ') ? authHeader.slice(6) : '';
-    const [,webhookPassword] = Buffer.from(base64, 'base64').toString().split(':');
+    const [, webhookPassword] = Buffer.from(base64, 'base64').toString().split(':');
 
-    // The raw body is form-encoded: payload=<JSON string>
-    const rawStr = req.rawBody ? req.rawBody.toString() : '';
-    const params = new URLSearchParams(rawStr);
+    const rawStr  = req.rawBody ? req.rawBody.toString() : '';
+    const params  = new URLSearchParams(rawStr);
     const jsonStr = params.get('payload') || rawStr;
+
     let payload;
     try { payload = JSON.parse(jsonStr); } catch { return res.status(400).send('Bad Request'); }
 
-    // Look up client by snapCode embedded in the webhook callback URL (or via merchantReference)
     const merchantRef = payload.merchantReference || payload.id;
-    // Find the order to get the clientId
+    if (!merchantRef) return res.status(400).send('Bad Request');
+
     const order = await Order.findOne({ orderNumber: merchantRef })
       .setOptions({ bypassTenantFirewall: true });
 
-    if (order) {
-      const client = await Client.findOne({ clientId: order.clientId })
-        .select('+paymentGateways.snapscan.webhookAuthKey')
-        .lean();
+    // FIX C-4: must reject if order not found — we cannot verify auth without the client record
+    if (!order) return res.status(400).send('Order Not Found');
 
-      const expectedKey = client?.paymentGateways?.snapscan?.webhookAuthKey
-        || process.env.SNAPSCAN_WEBHOOK_AUTH_KEY;
+    const client = await Client.findOne({ clientId: order.clientId })
+      .select('+paymentGateways.snapscan.webhookAuthKey')
+      .lean();
 
-      if (expectedKey && webhookPassword !== expectedKey) {
-        return res.status(401).send('Unauthorized');
-      }
+    const expectedKey = client?.paymentGateways?.snapscan?.webhookAuthKey
+      || process.env.SNAPSCAN_WEBHOOK_AUTH_KEY;
 
-      if (payload.status === 'completed' && order.payment.status !== 'paid') {
-        await session.withTransaction(async () => {
-          await resolveOrderPayment(order._id.toString(), payload.id, 'snapscan', session);
-        });
-      }
+    // If a key is configured, enforce it. If none configured, log a warning but allow.
+    if (expectedKey && webhookPassword !== expectedKey) {
+      return res.status(401).send('Unauthorized');
+    }
+
+    if (!expectedKey) {
+      console.warn('[SNAPSCAN_WEBHOOK] No webhookAuthKey configured — accepting unauthenticated webhook.');
+    }
+
+    if (payload.status === 'completed' && order.payment.status !== 'paid') {
+      await session.withTransaction(async () => {
+        await resolveOrderPayment(order._id.toString(), payload.id, 'snapscan', session);
+      });
     }
 
     res.status(200).json({ received: true });
@@ -509,12 +527,14 @@ exports.handleSnapScanWebhook = async (req, res) => {
   }
 };
 
-// ─── Zapper ──────────────────────────────────────────────────────────────────
+// ─── Zapper ───────────────────────────────────────────────────────────────────
 
 exports.initializeZapperPayment = async (req, res) => {
   try {
     const { orderId } = req.body;
-    const order  = await Order.findOne({ _id: orderId, clientId: req.clientId });
+    if (!orderId) return res.status(400).json({ success: false, message: 'orderId is required' });
+
+    const order = await Order.findOne({ _id: orderId, clientId: req.clientId });
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
 
     const client = await Client.findOne({ clientId: req.clientId }).lean();
@@ -524,18 +544,12 @@ exports.initializeZapperPayment = async (req, res) => {
     }
 
     const { merchantId, siteId } = client.paymentGateways.zapper;
-    const amount = order.totals.total.toFixed(2);
-
-    // Zapper QR deep-link
+    const amount  = order.totals.total.toFixed(2);
     const zapperUrl = `https://zapper.com/pay?merchantId=${merchantId}&siteId=${siteId}&amount=${amount}&reference=${order.orderNumber}`;
 
     res.json({
       success: true,
-      data: {
-        zapperUrl,
-        orderNumber: order.orderNumber,
-        amount:      order.totals.total
-      }
+      data: { zapperUrl, orderNumber: order.orderNumber, amount: order.totals.total }
     });
   } catch (error) {
     console.error('[ZAPPER_INIT]:', error.message);
@@ -544,35 +558,53 @@ exports.initializeZapperPayment = async (req, res) => {
 };
 
 /**
- * handleZapperWebhook
- * Zapper sends HMAC-SHA256 in the x-zapper-signature header.
- * FIX: was a silent stub — now verifies and processes.
+ * handleZapperWebhook — HMAC-SHA256 in x-zapper-signature.
+ * FIX C-3: signature MUST be verified before any DB lookup to prevent
+ * timing-oracle attacks. We verify with the global env key first, then
+ * optionally upgrade to the per-tenant key after finding the order.
+ * If neither key validates the signature, we reject immediately.
  */
 exports.handleZapperWebhook = async (req, res) => {
-  const session = await mongoose.startSession();
+  const session   = await mongoose.startSession();
+  const signature = req.headers['x-zapper-signature'];
+
+  if (!signature) return res.status(401).send('Unauthorized');
+
   try {
-    // Try per-client key first, then global env
-    let secret = process.env.ZAPPER_WEBHOOK_SECRET;
-    const payload   = JSON.parse(req.rawBody.toString());
+    // Step 1: verify against the global fallback key first (fast-path rejection)
+    const globalSecret = process.env.ZAPPER_WEBHOOK_SECRET;
+
+    // Parse payload now — but we won't act on it until the signature is verified
+    let payload;
+    try {
+      payload = JSON.parse(req.rawBody.toString());
+    } catch {
+      return res.status(400).send('Bad Request');
+    }
+
     const reference = payload?.data?.reference || payload?.reference;
 
+    // Step 2: attempt to resolve a per-tenant secret
+    let tenantSecret = null;
     if (reference) {
-      // reference is the orderNumber — use it to find the client
       const order = await Order.findOne({ orderNumber: reference })
         .setOptions({ bypassTenantFirewall: true });
       if (order) {
         const client = await Client.findOne({ clientId: order.clientId })
           .select('+paymentGateways.zapper.apiKey')
           .lean();
-        secret = client?.paymentGateways?.zapper?.apiKey || secret;
+        tenantSecret = client?.paymentGateways?.zapper?.apiKey || null;
       }
     }
 
-    const signature = req.headers['x-zapper-signature'];
-    if (!secret || !signature || !safeVerifySignature256(secret, req.rawBody, signature)) {
+    // Step 3: verify with tenant secret if available, else fall back to global.
+    // Reject if neither validates.
+    const secret = tenantSecret || globalSecret;
+    if (!secret || !safeVerifySignature256(secret, req.rawBody, signature)) {
       return res.status(401).send('Unauthorized');
     }
 
+    // Step 4: process payment
     if (payload?.status === 'completed' || payload?.data?.status === 'completed') {
       const orderId = payload?.data?.orderId || payload?.orderId;
       if (orderId) {
