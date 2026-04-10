@@ -1,183 +1,292 @@
-const express        = require('express');
-const mongoose       = require('mongoose');
-const cors           = require('cors');
-const helmet         = require('helmet');
-const morgan         = require('morgan');
-const rateLimit      = require('express-rate-limit');
-const path           = require('path');
-require('dotenv').config();
+const mongoose = require('mongoose');
 
-const { errorHandler } = require('./middleware/error');
-const startOrderExpiryJob = require('./jobs/expireOrders');
-
-const app = express();
+const ProductSchema = new mongoose.Schema(
+  {
+    clientId: { type: String, required: true, index: true },
+    name: { type: String, required: [true, 'Product name is required'], trim: true },
+    slug: { type: String },
+    description: String,
+    shortDescription: String,
+    price: { type: Number, required: true, min: 0 },
+    cost: { type: Number, min: 0 },
+    stockQuantity: { type: Number, required: true, default: 0, min: 0 },
+    reorderLevel: { type: Number, default: 10, min: 0 },
+    category: String,
+    tags: [String],
+    images: [
+      {
+        url: { type: String, required: true },
+        alt: String,
+        isPrimary: { type: Boolean, default: false },
+        order: { type: Number, default: 0 },
+        cloudinaryId: String
+      }
+    ],
+    seo: {
+      metaTitle: String,
+      metaDescription: String,
+      keywords: [String]
+    },
+    details: {
+      size: String,
+      materials: [String],
+      colors: [String],
+      notes: { top: [String], middle: [String], base: [String] }
+    },
+    isFeatured: { type: Boolean, default: false },
+    promotion: {
+      discountPercent: { type: Number, min: 0, max: 100 },
+      startDate: Date,
+      endDate: Date
+    },
+    status: {
+      type: String,
+      enum: ['active', 'archived', 'draft'],
+      default: 'active',
+      index: true
+    },
+    views:   { type: Number, default: 0 },
+    rating:  { type: Number, min: 0, max: 5, default: 0 },
+    reviews: { type: Number, default: 0 },
+    sku: { type: String, required: true },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  },
+  {
+    timestamps: true,
+    toJSON:   { virtuals: true },
+    toObject: { virtuals: true }
+  }
+);
 
 // =====================
-// SECURITY MIDDLEWARE
+// INDEXES
 // =====================
 
-app.use(helmet({ contentSecurityPolicy: false }));
+// Merchant-scoped SKU uniqueness
+ProductSchema.index({ clientId: 1, sku: 1 }, { unique: true });
 
-const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' ? process.env.FRONTEND_URL : '*',
-  credentials: true,
-  optionsSuccessStatus: 200
-};
-app.use(cors(corsOptions));
+// Merchant-scoped Slug uniqueness (only for active products)
+ProductSchema.index(
+  { clientId: 1, slug: 1 },
+  { unique: true, partialFilterExpression: { status: 'active' } }
+);
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, max: 20,
-  standardHeaders: true, legacyHeaders: false,
-  message: { success: false, message: 'Too many requests, please try again later.' }
+// =====================
+// TENANT FIREWALL
+// FIX C-8: Product had no model-level tenant firewall, unlike Order.
+// This pre-hook mirrors the one on OrderSchema: any find* query that
+// omits clientId is rejected unless the caller explicitly opts out via
+// .setOptions({ bypassTenantFirewall: true }).
+// Allowed bypasses: cron jobs, migration scripts, system-level admin ops.
+// =====================
+ProductSchema.pre(/^find/, function (next) {
+  // Allow explicit bypass for internal system operations (e.g. seeder, migrations)
+  if (this.getOptions().bypassTenantFirewall === true) return next();
+
+  const query = this.getQuery();
+  if (query.clientId === undefined) {
+    return next(new Error('Tenant Firewall: clientId is required for all Product queries.'));
+  }
+  next();
 });
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, max: 300,
-  standardHeaders: true, legacyHeaders: false,
-  message: { success: false, message: 'Too many requests, please try again later.' }
-});
-
-app.use('/api/v1/auth', authLimiter);
-app.use('/api/',        apiLimiter);
 
 // =====================
-// BODY PARSING
-// Webhook routes need raw body for HMAC — BEFORE express.json()
-// FIX 1: captureRawBody sets req.rawBody explicitly so signature verifiers
-// always have a stable Buffer reference regardless of middleware order.
+// UTILS
 // =====================
 
-const captureRawBody = (req, res, next) => { req.rawBody = req.body; next(); };
+const generateSlug = (name) =>
+  name.toLowerCase().trim()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
 
-app.use('/api/v1/payments/paystack/webhook',  express.raw({ type: 'application/json' }),                captureRawBody);
-app.use('/api/v1/payments/yoco/webhook',      express.raw({ type: 'application/json' }),                captureRawBody);
-app.use('/api/v1/payments/ozow/webhook',      express.raw({ type: 'application/json' }),                captureRawBody);
-app.use('/api/v1/payments/zapper/webhook',    express.raw({ type: 'application/json' }),                captureRawBody);
-app.use('/api/v1/payments/snapscan/webhook',  express.raw({ type: 'application/x-www-form-urlencoded' }), captureRawBody);
-app.use('/api/v1/checkout/webhook',           express.raw({ type: 'application/json' }),                captureRawBody);
-
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ limit: '1mb', extended: true }));
-
-// =====================
-// LOGGING
-// =====================
-if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
-else app.use(morgan('combined'));
-
-// =====================
-// STATIC FILES
-// Backend serves the frontend from the same folder
-// =====================
-app.use(express.static(path.join(__dirname, '..', 'frontend')));
-
-// =====================
-// DATABASE
-// =====================
-const startDatabase = async () => {
-  try {
-    if (process.env.NODE_ENV !== 'test') {
-      await mongoose.connect(process.env.MONGODB_URI, {
-        maxPoolSize: 10,
-        serverSelectionTimeoutMS: 5000,
-        socketTimeoutMS: 45000
-      });
-      console.log('✅ MongoDB Connected');
-      startOrderExpiryJob();
-      console.log('✅ Order expiry job started');
-    }
-  } catch (error) {
-    console.error('❌ MongoDB Connection Error:', error.message);
-    if (process.env.NODE_ENV !== 'test') process.exit(1);
+const validatePromotionDates = (start, end) => {
+  if (start && end && new Date(end) <= new Date(start)) {
+    throw new Error('Promotion end date must be after start date.');
   }
 };
-startDatabase();
 
 // =====================
-// ROUTES
+// MIDDLEWARE
 // =====================
-const authRoutes      = require('./routes/auth');
-const productRoutes   = require('./routes/productRoutes');
-const orderRoutes     = require('./routes/orders');
-const customerRoutes  = require('./routes/customers');
-const settingsRoutes  = require('./routes/settings');
-const uploadRoutes    = require('./routes/upload');
-const analyticsRoutes = require('./routes/analytics');
-const paymentRoutes   = require('./routes/payments');
-const checkoutRoutes  = require('./routes/checkout');
-const userRoutes      = require('./routes/users');
-const clientRoutes    = require('./routes/clientRoutes');
-const emailRoutes     = require('./routes/email');
-const backupRoutes    = require('./routes/backups');
-const adminRoutes     = require('./routes/admin');
 
-app.use('/api/v1/auth',      authRoutes);
-app.use('/api/v1/products',  productRoutes);
-app.use('/api/v1/orders',    orderRoutes);
-app.use('/api/v1/customers', customerRoutes);
-app.use('/api/v1/settings',  settingsRoutes);
-app.use('/api/v1/upload',    uploadRoutes);
-app.use('/api/v1/analytics', analyticsRoutes);
-app.use('/api/v1/payments',  paymentRoutes);
-app.use('/api/v1/checkout',  checkoutRoutes);
-app.use('/api/v1/users',     userRoutes);
-app.use('/api/v1/clients',   clientRoutes);
-app.use('/api/v1/email',     emailRoutes);
-app.use('/api/v1/backups',   backupRoutes);
-app.use('/api/v1/admin',     adminRoutes);
+ProductSchema.pre('findOneAndUpdate', function (next) {
+  const update  = this.getUpdate();
+  const options = this.getOptions();
+  if (!update.$set) update.$set = {};
 
-// =====================
-// /api/v1/config/:clientId ALIAS
-// rebel-engine.js calls this on every page load to fetch store branding.
-// Bridges to getPublicSettings in clientController.
-// =====================
-const { getPublicSettings } = require('./controllers/clientController');
-const { extractClientId }   = require('./middleware/auth');
+  if (options.userId) update.$set.updatedBy = options.userId;
 
-app.get('/api/v1/config/:clientId', (req, res, next) => {
-  req.headers['x-client-id'] = req.params.clientId;
+  const name = update.name || update.$set.name;
+  if (name) update.$set.slug = generateSlug(name);
+
+  const start = update.promotion?.startDate
+    || update.$set.promotion?.startDate
+    || update.$set['promotion.startDate'];
+  const end = update.promotion?.endDate
+    || update.$set.promotion?.endDate
+    || update.$set['promotion.endDate'];
+
+  try {
+    validatePromotionDates(start, end);
+  } catch (err) {
+    return next(err);
+  }
   next();
-}, extractClientId, getPublicSettings);
+});
+
+ProductSchema.pre('save', function (next) {
+  if (this._userId) {
+    if (this.isNew) this.createdBy = this._userId;
+    else            this.updatedBy = this._userId;
+    // Use undefined (not delete) so Mongoose dirty-tracking works correctly
+    this._userId = undefined;
+  }
+
+  try {
+    validatePromotionDates(this.promotion?.startDate, this.promotion?.endDate);
+  } catch (err) {
+    return next(err);
+  }
+
+  if (this.isModified('name')) {
+    this.slug = generateSlug(this.name);
+  }
+  next();
+});
 
 // =====================
-// HEALTH CHECK
+// INSTANCE METHODS
 // =====================
-app.get('/api/v1/health', (req, res) => {
-  const states = ['disconnected','connected','connecting','disconnecting'];
-  res.json({
-    success:   true,
-    status:    'operational',
-    database:  states[mongoose.connection.readyState] || 'unknown',
-    timestamp: new Date().toISOString()
+
+/**
+ * incrementViews — tenant-scoped, write-safe.
+ */
+ProductSchema.methods.incrementViews = async function () {
+  return mongoose.model('Product').updateOne(
+    { _id: this._id, clientId: this.clientId },
+    { $inc: { views: 1 } }
+  );
+};
+
+/**
+ * adjustStock — atomic stock change with floor guard.
+ * Scoping by clientId prevents cross-merchant document mutation.
+ */
+ProductSchema.methods.adjustStock = async function (quantity, userId = null) {
+  if (quantity === 0) return this;
+
+  const query = { _id: this._id, clientId: this.clientId };
+
+  // For decrements, ensure sufficient stock exists atomically
+  if (quantity < 0) {
+    query.stockQuantity = { $gte: Math.abs(quantity) };
+  }
+
+  const update = { $inc: { stockQuantity: quantity } };
+  if (userId) update.$set = { updatedBy: userId };
+
+  const updatedDoc = await mongoose.model('Product').findOneAndUpdate(
+    query,
+    update,
+    { new: true, runValidators: true }
+  );
+
+  if (!updatedDoc) {
+    throw new Error('Stock adjustment failed: Insufficient stock or merchant/product mismatch.');
+  }
+  this.stockQuantity = updatedDoc.stockQuantity;
+  return this;
+};
+
+ProductSchema.methods.decreaseStock = async function (quantity, userId = null) {
+  return this.adjustStock(-quantity, userId);
+};
+
+ProductSchema.methods.increaseStock = async function (quantity, userId = null) {
+  return this.adjustStock(quantity, userId);
+};
+
+// =====================
+// STATIC METHODS
+// =====================
+
+/**
+ * aggregateForTenant — mirrors Order.aggregateForTenant().
+ * FIX C-9 / C-10: Product.aggregate() bypasses the pre(/^find/) tenant hook.
+ * All aggregation pipelines MUST go through this wrapper.
+ */
+ProductSchema.statics.aggregateForTenant = function (clientId, pipeline) {
+  if (!clientId) {
+    throw new Error('Tenant Firewall: clientId is required for Product aggregations.');
+  }
+  return this.aggregate([
+    { $match: { clientId } },
+    ...pipeline
+  ]);
+};
+
+/**
+ * syncReviewStats — tenant-safe aggregate for review score syncing.
+ */
+ProductSchema.statics.syncReviewStats = async function (clientId, productId, throwOnError = false) {
+  if (!clientId || !productId) {
+    const err = new Error('[SYNC_ERROR] Operation aborted: clientId and productId are required.');
+    console.error(err.message);
+    if (throwOnError) throw err;
+    return;
+  }
+
+  try {
+    const Review = mongoose.model('Review');
+
+    // NOTE: Review.aggregate() bypasses pre-hooks.
+    // Explicit clientId in $match is the primary security boundary here.
+    const stats = await Review.aggregate([
+      {
+        $match: {
+          clientId,
+          product: new mongoose.Types.ObjectId(productId),
+          status:  'approved'
+        }
+      },
+      {
+        $group: {
+          _id:          '$product',
+          avgRating:    { $avg: '$rating' },
+          totalReviews: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const update = stats.length > 0
+      ? { rating: parseFloat(stats[0].avgRating.toFixed(1)), reviews: stats[0].totalReviews }
+      : { rating: 0, reviews: 0 };
+
+    await this.findOneAndUpdate({ _id: productId, clientId }, update);
+
+  } catch (error) {
+    console.error(`[SYNC_ENGINE_FAILURE][${productId}]:`, error.message);
+    if (throwOnError) throw error;
+  }
+};
+
+/**
+ * getLowStock / getOutOfStock — read-scoped tenant guards.
+ */
+ProductSchema.statics.getLowStock = function (clientId) {
+  if (!clientId) throw new Error('[TENANT_ERROR] clientId is required for stock queries.');
+  return this.find({
+    clientId,
+    status: 'active',
+    $expr: { $lte: ['$stockQuantity', '$reorderLevel'] }
   });
-});
+};
 
-// =====================
-// 404 + ERROR HANDLERS
-// =====================
-app.use((req, res) => {
-  res.status(404).json({ success: false, message: 'Route not found', path: req.originalUrl });
-});
+ProductSchema.statics.getOutOfStock = function (clientId) {
+  if (!clientId) throw new Error('[TENANT_ERROR] clientId is required for stock queries.');
+  return this.find({ clientId, status: 'active', stockQuantity: 0 });
+};
 
-app.use(errorHandler);
-
-// =====================
-// START SERVER
-// =====================
-const PORT = process.env.PORT || 5000;
-
-let server;
-if (process.env.NODE_ENV !== 'test') {
-  server = app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`);
-    console.log(`🌐 Dashboard → http://localhost:${PORT}/client-dashboard.html`);
-    console.log(`🌐 Store     → http://localhost:${PORT}/index.html`);
-  });
-}
-
-process.on('unhandledRejection', (err) => {
-  console.error(`❌ Unhandled Rejection: ${err.message}`);
-  if (server) server.close(() => process.exit(1));
-  else process.exit(1);
-});
-
-module.exports = app;
+module.exports = mongoose.model('Product', ProductSchema);
