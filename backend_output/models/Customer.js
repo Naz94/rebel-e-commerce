@@ -95,8 +95,12 @@ CustomerSchema.methods.comparePassword = async function (enteredPassword) {
  */
 CustomerSchema.methods.getSignedJwtToken = function () {
   return jwt.sign(
-    { id: this._id, type: 'customer' }, 
-    process.env.JWT_SECRET, 
+    {
+      id: this._id,
+      clientId: this.clientId,
+      type: 'customer'
+    },
+    process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRE || '7d' }
   );
 };
